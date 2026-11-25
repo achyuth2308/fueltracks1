@@ -76,6 +76,7 @@ import WhatsAppSettingsPage from './pages/admin/WhatsAppSettingsPage';
 import CertificateVerifyPage from './pages/CertificateVerifyPage';
 import SwitchLoginPage from './pages/admin/SwitchLoginPage';
 import FleetFuelOverviewPage from './pages/user/FleetFuelOverviewPage';
+import NonSensorFuelGraphPage from './pages/user/NonSensorFuelGraphPage';
 
 function App() {
   // Share vehicles state list globally to update the Topbar statistics dynamically
@@ -107,6 +108,8 @@ function App() {
               <Route path="dashboard" element={<DashboardPage setAppVehicles={setVehicles} />} />
               <Route path="tracking" element={<TrackingPage setAppVehicles={setVehicles} />} />
               <Route path="fuel-overview" element={<FleetFuelOverviewPage />} />
+              <Route path="fuel-graph" element={<NonSensorFuelGraphPage />} />
+              <Route path="fuel-trend" element={<NonSensorFuelGraphPage />} />
               <Route path="fuel-analytics" element={<FuelAnalyticsPage />} />
               <Route path="fuel-raw-data" element={<FuelRawDataPage />} />
               <Route path="fuel-entry" element={<ManualFuelEntryPage />} />

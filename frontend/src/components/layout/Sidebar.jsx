@@ -264,6 +264,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
           roles: ['superadmin', 'dealer', 'customer'],
           subItems: [
             { name: 'Fuel Overview', path: '/fuel-overview' },
+            { name: 'Fuel Graph', path: '/fuel-graph' },
             { name: 'Fuel Entry', path: '/fuel-entry' }
           ]
         },

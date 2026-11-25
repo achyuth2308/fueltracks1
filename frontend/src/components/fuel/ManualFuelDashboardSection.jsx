@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Fuel,
   TrendingUp,
@@ -19,6 +20,7 @@ import { getFleetFuelOverview } from '../../api/manualFuelApi';
 import ManualFuelConfigModal from './ManualFuelConfigModal';
 import ManualFuelHistoryModal from './ManualFuelHistoryModal';
 import ManualFuelEntryModal from './ManualFuelEntryModal';
+import ManualFuelChartCard from './ManualFuelChartCard';
 
 const getStatusBadge = (status) => {
   switch (status) {
@@ -71,6 +73,7 @@ const ManualFuelDashboardSection = () => {
   const [historyModalVehicle, setHistoryModalVehicle] = useState(null);
   const [entryModalVehicle, setEntryModalVehicle] = useState(null);
   const [isEntryOpen, setIsEntryOpen] = useState(false);
+  const [graphModalVehicle, setGraphModalVehicle] = useState(null);
 
   const fetchOverview = () => {
     setLoading(true);
@@ -382,6 +385,13 @@ const ManualFuelDashboardSection = () => {
                       <td className="py-2.5 px-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
+                            onClick={() => setGraphModalVehicle(veh)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-orange-600 hover:bg-orange-50 transition-colors"
+                            title="View Non-Sensor Fuel Graph"
+                          >
+                            <TrendingUp size={15} />
+                          </button>
+                          <button
                             onClick={() => {
                               setEntryModalVehicle(veh);
                               setIsEntryOpen(true);
@@ -432,6 +442,50 @@ const ManualFuelDashboardSection = () => {
           vehicle={historyModalVehicle}
           onClose={() => setHistoryModalVehicle(null)}
         />
+      )}
+
+      {/* Fuel Graph Modal Popup */}
+      {graphModalVehicle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 px-6 border-b border-slate-100 bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-orange-100 text-orange-600 rounded-xl">
+                  <TrendingUp size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900">
+                    {graphModalVehicle.vehicle_name || graphModalVehicle.plate} - Fuel Trend Graph
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Non-Sensor GPS telemetry depletion curve & verified driver refill events
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link
+                  to={`/fuel-graph?vehicle=${graphModalVehicle.vehicle_id || graphModalVehicle.id}`}
+                  className="text-xs font-bold text-orange-600 hover:text-orange-700 bg-orange-50 px-3 py-1.5 rounded-xl border border-orange-200 transition-colors"
+                >
+                  Full Page ↗
+                </Link>
+                <button
+                  onClick={() => setGraphModalVehicle(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="p-5 max-h-[80vh] overflow-y-auto">
+              <ManualFuelChartCard
+                vehicleId={graphModalVehicle.vehicle_id || graphModalVehicle.id}
+                vehicleName={graphModalVehicle.vehicle_name || graphModalVehicle.plate}
+                plate={graphModalVehicle.plate || ''}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
       {isEntryOpen && (

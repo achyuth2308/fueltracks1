@@ -1,3 +1,4 @@
+import ManualFuelChartCard from '../../components/fuel/ManualFuelChartCard';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Fuel,
@@ -841,6 +842,15 @@ const ManualFuelEntryPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Interactive Fuel Trend Graph */}
+      {selectedVehicleId && (
+        <ManualFuelChartCard
+          vehicleId={selectedVehicleId}
+          vehicleName={activeVehicle?.name || activeVehicle?.plate || 'Vehicle'}
+          plate={activeVehicle?.plate || ''}
+        />
+      )}
 
       {/* Bottom Audit Log Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
