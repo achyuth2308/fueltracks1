@@ -159,7 +159,7 @@ const NonSensorFuelGraphPage = () => {
       <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3.5 flex items-center gap-3 text-amber-900 text-xs">
         <Info size={18} className="text-amber-600 shrink-0" />
         <div className="leading-relaxed">
-          <strong className="font-extrabold">GPS-BASED MILEAGE DEPLETION:</strong> This graph displays the mathematical fuel depletion curve: <code className="font-mono bg-amber-100/70 px-1.5 py-0.5 rounded text-[11px]">Fuel Consumed = GPS Distance / {mileage.toFixed(1)} km/l</code>. Refill bars (<span className="text-emerald-700 font-bold">+L</span>) reflect verified driver transactions.
+          <strong className="font-extrabold">GPS-BASED MILEAGE DEPLETION:</strong> This graph displays the mathematical fuel depletion curve: <code className="font-mono bg-amber-100/70 px-1.5 py-0.5 rounded text-[11px]">Fuel Consumed = GPS Distance / {mileage.toFixed(1)} km/l</code>. Refill markers (<span className="text-emerald-700 font-bold">+L</span>) and theft/drain events (<span className="text-rose-700 font-bold">-L</span>) are correlated directly on the timeline.
         </div>
       </div>
 

@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ResponsiveContainer,
   ComposedChart,
   Area,
-  Bar,
   Line,
   XAxis,
   YAxis,
@@ -24,81 +23,167 @@ import {
   RotateCcw,
   Sparkles,
   BarChart2,
-  LineChart as LineChartIcon
+  ShieldAlert,
+  Sliders,
+  CheckCircle2,
 } from 'lucide-react';
 import { getFuelChartData } from '../../api/manualFuelApi';
 
 /**
- * Custom Tooltip for Manual Fuel Chart
+ * Custom Tooltip for Manual Fuel Chart (Fuel Analytics Multi-Card Pattern)
  */
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    return (
-      <div className="bg-slate-900/95 text-white p-3 rounded-xl shadow-xl border border-slate-700/80 text-xs backdrop-blur-md space-y-1.5 min-w-[190px]">
+const CustomTooltip = ({ active, payload, showRefills, showThefts, tankCapacity }) => {
+  if (!active || !payload || !payload.length) return null;
+  const data = payload[0].payload;
+  const isRefill = Boolean(data.isRefill && showRefills);
+  const isTheft = Boolean(data.isTheft && showThefts);
+
+  return (
+    <div className="flex flex-col sm:flex-row items-stretch gap-2.5 pointer-events-none select-none drop-shadow-2xl">
+      {/* CARD 1: DEDICATED REFILL CARD (Emerald Green) */}
+      {isRefill && (
+        <div className="bg-slate-900/95 backdrop-blur-md border border-emerald-500/60 p-3 rounded-xl shadow-2xl text-xs space-y-2 text-white min-w-[200px] max-w-[240px] flex flex-col justify-between">
+          <div className="flex items-center justify-between text-xs font-bold text-emerald-400 border-b border-emerald-500/30 pb-1.5">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              REFILL DETECTED
+            </span>
+            <span className="font-mono text-emerald-300 font-bold bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40">
+              +{Number(data.refillLiters || data.fuelFilled).toFixed(1)} L
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
+            <div>
+              <span className="text-slate-400 text-[10px] block">Time:</span>
+              <span className="font-mono text-slate-200 font-semibold">{data.date}</span>
+            </div>
+            <div>
+              <span className="text-slate-400 text-[10px] block">New Level:</span>
+              <span className="font-mono text-emerald-300 font-bold">{Number(data.fuelLevel).toFixed(1)} L</span>
+            </div>
+            {data.refillEvent?.startFuel != null && (
+              <div>
+                <span className="text-slate-400 text-[10px] block">Before:</span>
+                <span className="font-mono text-slate-300">{Number(data.refillEvent.startFuel).toFixed(1)} L</span>
+              </div>
+            )}
+            {data.driverName && (
+              <div>
+                <span className="text-slate-400 text-[10px] block">Logged by:</span>
+                <span className="text-slate-200 truncate">{data.driverName}</span>
+              </div>
+            )}
+          </div>
+          {data.remarks && (
+            <p className="text-[10px] text-slate-400 italic border-t border-slate-800/80 pt-1">
+              "{data.remarks}"
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* CARD 2: DEDICATED THEFT / ABNORMAL DROP CARD (Crimson Red) */}
+      {isTheft && (
+        <div className="bg-slate-900/95 backdrop-blur-md border border-rose-500/60 p-3 rounded-xl shadow-2xl text-xs space-y-2 text-white min-w-[200px] max-w-[240px] flex flex-col justify-between">
+          <div className="flex items-center justify-between text-xs font-bold text-rose-400 border-b border-rose-500/30 pb-1.5">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
+              THEFT / DRAIN
+            </span>
+            <span className="font-mono text-rose-300 font-bold bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-500/40">
+              -{Number(data.theftLiters || 0).toFixed(1)} L
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
+            <div>
+              <span className="text-slate-400 text-[10px] block">Time:</span>
+              <span className="font-mono text-slate-200 font-semibold">{data.date}</span>
+            </div>
+            <div>
+              <span className="text-slate-400 text-[10px] block">Resulting:</span>
+              <span className="font-mono text-rose-300 font-bold">{Number(data.fuelLevel).toFixed(1)} L</span>
+            </div>
+            {data.theftEvent?.startFuel != null && (
+              <div>
+                <span className="text-slate-400 text-[10px] block">Expected:</span>
+                <span className="font-mono text-slate-300">{Number(data.theftEvent.startFuel).toFixed(1)} L</span>
+              </div>
+            )}
+            {data.driverName && (
+              <div>
+                <span className="text-slate-400 text-[10px] block">Source:</span>
+                <span className="text-slate-200 truncate">{data.driverName}</span>
+              </div>
+            )}
+          </div>
+          <p className="text-[10px] text-rose-300/90 italic border-t border-slate-800/80 pt-1">
+            {data.remarks || 'Unaccounted fuel drop recorded during level inspection'}
+          </p>
+        </div>
+      )}
+
+      {/* CARD 3: MAIN TELEMETRY SNAPSHOT CARD */}
+      <div className="bg-slate-900/95 text-white p-3.5 rounded-xl shadow-xl border border-slate-700/80 text-xs backdrop-blur-md space-y-2 min-w-[200px]">
         <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
-          <span className="font-bold text-slate-300">{data.date}</span>
+          <span className="font-bold text-slate-300 font-mono text-[11px]">{data.date}</span>
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-            data.entryType === 'REFILL'
+            isRefill
               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+              : isTheft
+              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
               : data.entryType === 'INITIAL'
               ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-              : data.entryType === 'GPS_DEPLETION'
-              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
               : data.entryType === 'CURRENT_ESTIMATE'
               ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
               : 'bg-slate-700 text-slate-300'
           }`}>
-            {data.entryType === 'CURRENT_ESTIMATE'
-              ? 'Live Telemetry'
-              : data.entryType === 'GPS_DEPLETION'
-              ? 'GPS Telemetry'
-              : data.entryType}
+            {isRefill ? 'Refill Event' : isTheft ? 'Theft Event' : data.entryType === 'CURRENT_ESTIMATE' ? 'Live Telemetry' : data.entryType === 'GPS_DEPLETION' ? 'GPS Move' : data.entryType}
           </span>
         </div>
 
-        <div className="space-y-1 pt-0.5">
+        <div className="space-y-1.5 pt-0.5">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">Fuel Level:</span>
+            <span className="text-slate-400">Estimated Fuel:</span>
             <span className="font-extrabold text-orange-400 text-sm font-mono">
               {Number(data.fuelLevel).toFixed(1)} L
             </span>
           </div>
 
-          {data.fuelFilled > 0 && (
-            <div className="flex items-center justify-between text-emerald-400 font-semibold">
-              <span>Fuel Added:</span>
-              <span className="font-mono">+{Number(data.fuelFilled).toFixed(1)} L</span>
+          {tankCapacity > 0 && (
+            <div className="flex items-center justify-between text-[11px] text-slate-400">
+              <span>Tank Capacity:</span>
+              <span className="font-semibold text-slate-300 font-mono">
+                {Math.min(100, Math.round((Number(data.fuelLevel) / tankCapacity) * 100))}% ({tankCapacity} L)
+              </span>
             </div>
           )}
 
           {data.odometer > 0 && (
-            <div className="flex items-center justify-between text-slate-300">
+            <div className="flex items-center justify-between text-slate-300 text-[11px]">
               <span className="text-slate-400">Odometer:</span>
               <span className="font-mono font-semibold">{Number(data.odometer).toLocaleString()} KM</span>
             </div>
           )}
 
-          {data.driverName && (
+          {data.driverName && !isRefill && !isTheft && (
             <div className="flex items-center justify-between text-[11px] text-slate-400">
               <span>Logged by:</span>
               <span className="text-slate-200 font-medium">{data.driverName}</span>
             </div>
           )}
 
-          {data.remarks && (
+          {data.remarks && !isRefill && !isTheft && (
             <div className="text-[10px] text-slate-400 italic pt-1 border-t border-slate-800/80">
               "{data.remarks}"
             </div>
           )}
         </div>
       </div>
-    );
-  }
-  return null;
+    </div>
+  );
 };
 
-// Helpers for datetime-local
+// Date-Time formatting helpers
 const toDateTimeLocalString = (date) => {
   const d = new Date(date);
   const pad = (n) => String(n).padStart(2, '0');
@@ -132,7 +217,8 @@ const getInitialDates = () => {
 
 /**
  * ManualFuelChartCard
- * Full interactive analytics graph for Manual Fuel Monitoring without physical sensors.
+ * Single unified Fuel Analytics graph for Non-Sensor Fuel Telemetry.
+ * Shows Fuel Depletion Curve with Refill (Filling) and Theft (Drain) events directly on the graph.
  */
 const ManualFuelChartCard = ({
   vehicleId,
@@ -144,13 +230,17 @@ const ManualFuelChartCard = ({
   const [customStart, setCustomStart] = useState(() => getInitialDates().start);
   const [customEnd, setCustomEnd] = useState(() => getInitialDates().end);
   const [selectedPreset, setSelectedPreset] = useState('last7d');
-  const [activeMetric, setActiveMetric] = useState('level'); // 'level' | 'refills' | 'mileage'
   const [chartData, setChartData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const startInputRef = React.useRef(null);
-  const endInputRef = React.useRef(null);
+  // Unified Graph Layer Toggles (like Fuel Analytics)
+  const [showFilteredFuel, setShowFilteredFuel] = useState(true);
+  const [showRefills, setShowRefills] = useState(true);
+  const [showThefts, setShowThefts] = useState(true);
+
+  const startInputRef = useRef(null);
+  const endInputRef = useRef(null);
 
   const fetchChart = (startOverride, endOverride) => {
     if (!vehicleId) return;
@@ -224,6 +314,8 @@ const ManualFuelChartCard = ({
   const tankCapacity = chartData?.tankCapacity || 100;
   const currentFuel = chartData?.currentFuel || 0;
   const fillPercentage = tankCapacity > 0 ? Math.min(100, Math.round((currentFuel / tankCapacity) * 100)) : 0;
+  const refillCount = chartData?.refillCount || 0;
+  const theftCount = chartData?.theftCount || 0;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-5">
@@ -234,15 +326,18 @@ const ManualFuelChartCard = ({
             <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-600">
               <BarChart2 size={18} />
             </div>
-            <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
-              Fuel Telemetry & Mileage Graph
+            <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              Fuel & Telemetry Correlation
+              <span className="text-xs font-mono font-medium text-slate-400 lowercase">
+                ({timeline.length} points)
+              </span>
             </h3>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-              Estimated Values
+              Estimated Non-Sensor
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5 font-medium">
-            Visualizing tank level depletion based on GPS distance & verified driver refill events.
+            Single unified fuel curve tracking tank depletion, verified fillings & detected theft/drain events.
           </p>
         </div>
 
@@ -262,40 +357,51 @@ const ManualFuelChartCard = ({
             </select>
           )}
 
-          {/* Metric View Switcher */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-bold">
+          {/* Inline Mini-Pill Telematics Toggles (Fuel Analytics Style) */}
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            {/* Filtered Fuel Layer */}
             <button
               type="button"
-              onClick={() => setActiveMetric('level')}
-              className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                activeMetric === 'level'
-                  ? 'bg-white text-orange-600 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+              onClick={() => setShowFilteredFuel(!showFilteredFuel)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                showFilteredFuel
+                  ? 'bg-white text-orange-600 shadow-xs ring-1 ring-orange-500/20 font-bold'
+                  : 'text-slate-400 hover:text-slate-600'
               }`}
+              title="Toggle Fuel Depletion Curve"
             >
-              Fuel Level (L)
+              <span className={`w-2 h-2 rounded-full ${showFilteredFuel ? 'bg-orange-500' : 'bg-slate-300'}`} />
+              <span>Fuel Level</span>
             </button>
+
+            {/* Refills (Fillings) Layer */}
             <button
               type="button"
-              onClick={() => setActiveMetric('refills')}
-              className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                activeMetric === 'refills'
-                  ? 'bg-white text-emerald-600 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+              onClick={() => setShowRefills(!showRefills)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                showRefills
+                  ? 'bg-white text-emerald-600 shadow-xs ring-1 ring-emerald-500/20 font-bold'
+                  : 'text-slate-400 hover:text-slate-600'
               }`}
+              title="Highlight Refill / Fuel Filling Events"
             >
-              Refills (L)
+              <span className={`w-2 h-2 rounded-full ${showRefills ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+              <span>Fillings ({refillCount})</span>
             </button>
+
+            {/* Thefts Layer */}
             <button
               type="button"
-              onClick={() => setActiveMetric('mileage')}
-              className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                activeMetric === 'mileage'
-                  ? 'bg-white text-blue-600 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+              onClick={() => setShowThefts(!showThefts)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                showThefts
+                  ? 'bg-white text-rose-600 shadow-xs ring-1 ring-rose-500/20 font-bold'
+                  : 'text-slate-400 hover:text-slate-600'
               }`}
+              title="Highlight Fuel Theft & Unaccounted Drop Events"
             >
-              Mileage (km/l)
+              <span className={`w-2 h-2 rounded-full ${showThefts ? 'bg-rose-500' : 'bg-slate-300'}`} />
+              <span>Thefts ({theftCount})</span>
             </button>
           </div>
 
@@ -403,9 +509,10 @@ const ManualFuelChartCard = ({
         </div>
       )}
 
-      {/* KPI Stats Row */}
+      {/* KPI Stats Row (Unified: Fuel, Fillings, Thefts, Consumed, Mileage) */}
       {chartData && (
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          {/* Card 1: Current Est. Fuel */}
           <div className="p-3 rounded-xl bg-orange-50/60 border border-orange-100">
             <span className="text-[10px] font-extrabold uppercase text-orange-800 tracking-wider">
               Current Est. Fuel
@@ -421,66 +528,75 @@ const ManualFuelChartCard = ({
             </span>
           </div>
 
+          {/* Card 2: Total Fillings (Refills) */}
           <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-100">
             <span className="text-[10px] font-extrabold uppercase text-emerald-800 tracking-wider">
-              Total Refilled
+              Total Fillings
             </span>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className="text-xl font-black text-emerald-950 font-mono">
-                +{Number(chartData.totalFuelRefilled).toFixed(1)}
+                +{Number(chartData.totalFuelRefilled || 0).toFixed(1)}
               </span>
               <span className="text-xs font-bold text-emerald-700">Litres</span>
             </div>
-            <span className="text-[10.5px] font-semibold text-emerald-700">Verified entries</span>
+            <span className="text-[10.5px] font-semibold text-emerald-700">
+              {refillCount} verified {refillCount === 1 ? 'entry' : 'entries'}
+            </span>
           </div>
 
+          {/* Card 3: Total Thefts / Drains */}
           <div className="p-3 rounded-xl bg-rose-50/60 border border-rose-100">
-            <span className="text-[10px] font-extrabold uppercase text-rose-800 tracking-wider">
-              Est. Fuel Consumed
+            <span className="text-[10px] font-extrabold uppercase text-rose-800 tracking-wider flex items-center gap-1">
+              <ShieldAlert size={12} className="text-rose-600" />
+              Theft / Drains
             </span>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className="text-xl font-black text-rose-950 font-mono">
-                {Number(chartData.totalFuelConsumed).toFixed(1)}
+                {Number(chartData.totalFuelTheft || 0) > 0 ? `-${Number(chartData.totalFuelTheft).toFixed(1)}` : '0.0'}
               </span>
               <span className="text-xs font-bold text-rose-700">Litres</span>
             </div>
-            <span className="text-[10.5px] font-semibold text-rose-700">GPS Distance / Mileage</span>
+            <span className="text-[10.5px] font-semibold text-rose-700">
+              {theftCount} {theftCount === 1 ? 'theft event' : 'theft events'}
+            </span>
           </div>
 
-          <div className="p-3 rounded-xl bg-sky-50/60 border border-sky-100">
-            <span className="text-[10px] font-extrabold uppercase text-sky-800 tracking-wider">
-              GPS Distance Tracked
+          {/* Card 4: Estimated Fuel Consumed */}
+          <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-100">
+            <span className="text-[10px] font-extrabold uppercase text-amber-800 tracking-wider">
+              Est. Fuel Consumed
             </span>
             <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-xl font-black text-sky-950 font-mono">
-                {Math.round(chartData.totalDistance).toLocaleString()}
+              <span className="text-xl font-black text-amber-950 font-mono">
+                {Number(chartData.totalFuelConsumed || 0).toFixed(1)}
               </span>
-              <span className="text-xs font-bold text-sky-700">KM</span>
+              <span className="text-xs font-bold text-amber-700">Litres</span>
             </div>
-            <span className="text-[10.5px] font-semibold text-sky-700">Total travelled</span>
+            <span className="text-[10.5px] font-semibold text-amber-700">GPS Distance / Mileage</span>
           </div>
 
-          <div className="p-3 rounded-xl bg-purple-50/60 border border-purple-100">
-            <span className="text-[10px] font-extrabold uppercase text-purple-800 tracking-wider">
-              Average Mileage
+          {/* Card 5: GPS Distance & Average Mileage */}
+          <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-100">
+            <span className="text-[10px] font-extrabold uppercase text-blue-800 tracking-wider">
+              GPS Dist. & Mileage
             </span>
             <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="text-xl font-black text-purple-950 font-mono">
-                {Number(chartData.currentMileage).toFixed(1)}
+              <span className="text-xl font-black text-blue-950 font-mono">
+                {Math.round(chartData.totalDistance || 0)}
               </span>
-              <span className="text-xs font-bold text-purple-700">km/l</span>
+              <span className="text-xs font-bold text-blue-700">KM ({Number(chartData.currentMileage || 16.0).toFixed(1)} km/l)</span>
             </div>
-            <span className="text-[10.5px] font-semibold text-purple-700">Learned rolling avg</span>
+            <span className="text-[10.5px] font-semibold text-blue-700">Computed telemetry</span>
           </div>
         </div>
       )}
 
-      {/* Chart Canvas */}
-      <div className="w-full h-72 sm:h-80 bg-slate-50/50 rounded-xl border border-slate-100 p-2 sm:p-4">
+      {/* SINGLE UNIFIED CHART CANVAS */}
+      <div className="w-full h-72 sm:h-84 bg-slate-50/50 rounded-xl border border-slate-100 p-2 sm:p-4">
         {loading ? (
           <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-400">
             <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-xs font-bold">Generating fuel telemetry graph...</span>
+            <span className="text-xs font-bold">Correlating fuel telemetry & events...</span>
           </div>
         ) : error ? (
           <div className="h-full flex flex-col items-center justify-center gap-1.5 text-rose-500 text-xs font-semibold">
@@ -497,81 +613,54 @@ const ManualFuelChartCard = ({
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            {activeMetric === 'refills' ? (
-              <ComposedChart data={timeline} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748B' }} />
-                <YAxis unit="L" tick={{ fontSize: 10, fill: '#64748B' }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                <Bar dataKey="fuelFilled" name="Fuel Added (Litres)" fill="#10B981" radius={[4, 4, 0, 0]} />
-                <Line type="monotone" dataKey="fuelLevel" name="Resulting Tank Level (L)" stroke="#EA580C" strokeWidth={2} dot={{ r: 4 }} />
-              </ComposedChart>
-            ) : activeMetric === 'mileage' ? (
-              <ComposedChart
-                data={chartData?.mileageHistory?.length ? chartData.mileageHistory : timeline}
-                margin={{ top: 10, right: 20, left: -10, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748B' }} />
-                <YAxis unit=" km/l" tick={{ fontSize: 10, fill: '#64748B' }} />
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                <Line
-                  type="monotone"
-                  dataKey="calculatedMileage"
-                  name="Calculated Trip Mileage (km/l)"
-                  stroke="#3B82F6"
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="rollingAverage"
-                  name="Rolling Avg Mileage (km/l)"
-                  stroke="#8B5CF6"
-                  strokeWidth={2.5}
+            <ComposedChart data={timeline} margin={{ top: 15, right: 20, left: -10, bottom: 5 }}>
+              <defs>
+                <linearGradient id="fuelLevelGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#EA580C" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="#EA580C" stopOpacity={0.0} />
+                </linearGradient>
+              </defs>
+
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748B' }} />
+              <YAxis
+                domain={[0, tankCapacity > 0 ? Math.round(tankCapacity * 1.1) : 'auto']}
+                unit="L"
+                tick={{ fontSize: 10, fill: '#64748B' }}
+              />
+              <Tooltip
+                content={
+                  <CustomTooltip
+                    showRefills={showRefills}
+                    showThefts={showThefts}
+                    tankCapacity={tankCapacity}
+                  />
+                }
+              />
+              <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+
+              {/* Tank Capacity Reference Line */}
+              {tankCapacity > 0 && (
+                <ReferenceLine
+                  y={tankCapacity}
+                  label={{ value: `Full Tank: ${tankCapacity}L`, position: 'insideTopRight', fill: '#059669', fontSize: 10, fontWeight: 700 }}
+                  stroke="#059669"
                   strokeDasharray="4 4"
                 />
-              </ComposedChart>
-            ) : (
-              <ComposedChart data={timeline} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="fuelLevelGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#EA580C" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#EA580C" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748B' }} />
-                <YAxis
-                  domain={[0, tankCapacity > 0 ? Math.round(tankCapacity * 1.1) : 'auto']}
-                  unit="L"
-                  tick={{ fontSize: 10, fill: '#64748B' }}
+              )}
+
+              {/* Low Fuel Threshold Reference Line */}
+              {chartData?.lowFuelThreshold > 0 && (
+                <ReferenceLine
+                  y={chartData.lowFuelThreshold}
+                  label={{ value: `Low Fuel: ${chartData.lowFuelThreshold}L`, position: 'insideBottomRight', fill: '#D97706', fontSize: 10, fontWeight: 700 }}
+                  stroke="#D97706"
+                  strokeDasharray="3 3"
                 />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+              )}
 
-                {/* Tank Capacity Reference Line */}
-                {tankCapacity > 0 && (
-                  <ReferenceLine
-                    y={tankCapacity}
-                    label={{ value: `Full Tank: ${tankCapacity}L`, position: 'insideTopRight', fill: '#059669', fontSize: 10, fontWeight: 700 }}
-                    stroke="#059669"
-                    strokeDasharray="4 4"
-                  />
-                )}
-
-                {/* Low Fuel Threshold Reference Line */}
-                {chartData?.lowFuelThreshold > 0 && (
-                  <ReferenceLine
-                    y={chartData.lowFuelThreshold}
-                    label={{ value: `Low Fuel: ${chartData.lowFuelThreshold}L`, position: 'insideBottomRight', fill: '#D97706', fontSize: 10, fontWeight: 700 }}
-                    stroke="#D97706"
-                    strokeDasharray="3 3"
-                  />
-                )}
-
+              {/* Single Unified Fuel Depletion Curve with Refill & Theft Points */}
+              {showFilteredFuel && (
                 <Area
                   type="monotone"
                   dataKey="fuelLevel"
@@ -581,23 +670,57 @@ const ManualFuelChartCard = ({
                   fillOpacity={1}
                   fill="url(#fuelLevelGradient)"
                   dot={({ cx, cy, payload }) => {
-                    const isRefill = payload.isRefill;
+                    const isRefill = Boolean(payload.isRefill && showRefills);
+                    const isTheft = Boolean(payload.isTheft && showThefts);
                     const isInitial = payload.isInitial;
+
+                    if (isRefill) {
+                      return (
+                        <g key={`refill-dot-${cx}-${cy}`}>
+                          <circle cx={cx} cy={cy} r={7} fill="#10B981" stroke="#FFFFFF" strokeWidth={2.5} />
+                          <circle cx={cx} cy={cy} r={2.5} fill="#FFFFFF" />
+                        </g>
+                      );
+                    }
+
+                    if (isTheft) {
+                      return (
+                        <g key={`theft-dot-${cx}-${cy}`}>
+                          <circle cx={cx} cy={cy} r={7} fill="#EF4444" stroke="#FFFFFF" strokeWidth={2.5} />
+                          <circle cx={cx} cy={cy} r={2.5} fill="#FFFFFF" />
+                        </g>
+                      );
+                    }
+
+                    if (isInitial) {
+                      return (
+                        <circle
+                          key={`init-dot-${cx}-${cy}`}
+                          cx={cx}
+                          cy={cy}
+                          r={5}
+                          fill="#3B82F6"
+                          stroke="#FFFFFF"
+                          strokeWidth={2}
+                        />
+                      );
+                    }
+
                     return (
                       <circle
-                        key={cx + '-' + cy}
+                        key={`norm-dot-${cx}-${cy}`}
                         cx={cx}
                         cy={cy}
-                        r={isRefill ? 6 : isInitial ? 5 : 4}
-                        fill={isRefill ? '#10B981' : isInitial ? '#3B82F6' : '#EA580C'}
+                        r={3}
+                        fill="#EA580C"
                         stroke="#FFFFFF"
-                        strokeWidth={2}
+                        strokeWidth={1.5}
                       />
                     );
                   }}
                 />
-              </ComposedChart>
-            )}
+              )}
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>

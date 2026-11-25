@@ -662,6 +662,36 @@ class ManualFuelService {
       logsParams
     );
 
+    // Query fuel theft alerts for the selected window
+    let alertsClause = '';
+    const alertsParams = [vehicleId];
+    if (startIso && endIso) {
+      alertsParams.push(startIso, endIso);
+      alertsClause = `AND server_time >= $2 AND server_time <= $3`;
+    } else if (startIso) {
+      alertsParams.push(startIso);
+      alertsClause = `AND server_time >= $2`;
+    } else if (range === '7d') {
+      alertsClause = "AND server_time >= NOW() - INTERVAL '7 days'";
+    } else if (range === '90d') {
+      alertsClause = "AND server_time >= NOW() - INTERVAL '90 days'";
+    } else {
+      alertsClause = "AND server_time >= NOW() - INTERVAL '30 days'";
+    }
+
+    let alertsRes = { rows: [] };
+    try {
+      alertsRes = await db.query(
+        `SELECT id, alert_type, alert_text, server_time
+         FROM alerts
+         WHERE vehicle_id = $1 AND alert_type IN ('fuel_theft', 'theft') ${alertsClause}
+         ORDER BY server_time ASC`,
+        alertsParams
+      );
+    } catch (alertErr) {
+      // alerts table optional fallback
+    }
+
     const mileageRes = await db.query(
       `SELECT * FROM vehicle_mileage_history
        WHERE vehicle_id = $1
@@ -670,6 +700,8 @@ class ManualFuelService {
     );
 
     const timeline = [];
+    const refillEvents = [];
+    const theftEvents = [];
 
     // Prepend baseline entry if earlier than first entry in range
     if (baselineEntry && (entriesRes.rows.length === 0 || new Date(entriesRes.rows[0].entry_time).getTime() > new Date(startIso).getTime())) {
@@ -688,30 +720,120 @@ class ManualFuelService {
         entryType: baselineEntry.entry_type,
         remarks: 'Baseline before selected range',
         driverName: baselineEntry.driver_name || 'Driver',
-        isRefill: baselineEntry.entry_type === 'REFILL',
+        isRefill: false,
+        isTheft: false,
         isInitial: baselineEntry.entry_type === 'INITIAL',
       });
     }
 
-    // Add manual refill & audit entries
+    // Add manual refill, level check & audit entries
     entriesRes.rows.forEach((e) => {
       const d = new Date(e.entry_time);
+      const isRefill = e.entry_type === 'REFILL' || Number(e.fuel_filled || 0) > 0;
+      const isTheft = (e.entry_type === 'LEVEL_CHECK' || e.entry_type === 'RECONCILIATION') && Number(e.fuel_difference || 0) <= -2;
+      const timeFormatted = isNaN(d.getTime()) ? 'Entry' : d.toLocaleDateString('en-IN', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      if (isRefill) {
+        refillEvents.push({
+          time: e.entry_time,
+          formattedTime: timeFormatted,
+          liters: Number(e.fuel_filled || 0),
+          fuelBefore: Number(e.estimated_fuel_before || 0),
+          fuelAfter: Number(e.fuel_quantity || 0),
+          driverName: e.driver_name || 'Driver',
+          remarks: e.remarks || 'Fuel Refill Entry'
+        });
+      }
+
+      if (isTheft) {
+        const drop = Math.abs(Number(e.fuel_difference || 0));
+        theftEvents.push({
+          time: e.entry_time,
+          formattedTime: timeFormatted,
+          liters: drop,
+          fuelBefore: Number(e.estimated_fuel_before || 0),
+          fuelAfter: Number(e.fuel_quantity || 0),
+          driverName: e.driver_name || 'Driver',
+          remarks: e.remarks || 'Unaccounted fuel drop during level check'
+        });
+      }
+
       timeline.push({
         timestamp: e.entry_time,
-        date: isNaN(d.getTime()) ? 'Entry' : d.toLocaleDateString('en-IN', {
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
+        date: timeFormatted,
         fuelLevel: Number(e.fuel_quantity),
         fuelFilled: Number(e.fuel_filled || 0),
         odometer: Number(e.odometer || 0),
         entryType: e.entry_type,
         remarks: e.remarks || '',
         driverName: e.driver_name || 'Driver',
-        isRefill: e.entry_type === 'REFILL',
+        isRefill,
+        refillLiters: isRefill ? Number(e.fuel_filled || 0) : 0,
+        refillEvent: isRefill ? {
+          liters: Number(e.fuel_filled || 0),
+          startTime: timeFormatted,
+          startFuel: Number(e.estimated_fuel_before || 0),
+          endFuel: Number(e.fuel_quantity || 0),
+          driverName: e.driver_name || 'Driver',
+          remarks: e.remarks || 'Fuel Refill Entry'
+        } : null,
+        isTheft,
+        theftLiters: isTheft ? Math.abs(Number(e.fuel_difference || 0)) : 0,
+        theftEvent: isTheft ? {
+          liters: Math.abs(Number(e.fuel_difference || 0)),
+          startTime: timeFormatted,
+          startFuel: Number(e.estimated_fuel_before || 0),
+          endFuel: Number(e.fuel_quantity || 0),
+          driverName: e.driver_name || 'Driver',
+          remarks: e.remarks || 'Unaccounted fuel drop during level check'
+        } : null,
         isInitial: e.entry_type === 'INITIAL',
+      });
+    });
+
+    // Add alert records if any
+    alertsRes.rows.forEach(a => {
+      const d = new Date(a.server_time);
+      const timeFormatted = isNaN(d.getTime()) ? 'Alert' : d.toLocaleDateString('en-IN', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const dropLiters = 5.0;
+      theftEvents.push({
+        time: a.server_time,
+        formattedTime: timeFormatted,
+        liters: dropLiters,
+        fuelBefore: 0,
+        fuelAfter: 0,
+        remarks: a.alert_text || 'Fuel Theft Alert'
+      });
+      timeline.push({
+        timestamp: a.server_time,
+        date: timeFormatted,
+        fuelLevel: 0,
+        fuelFilled: 0,
+        odometer: 0,
+        entryType: 'THEFT_ALERT',
+        remarks: a.alert_text || 'Theft Alert',
+        driverName: 'Security Siren',
+        isRefill: false,
+        isTheft: true,
+        theftLiters: dropLiters,
+        theftEvent: {
+          liters: dropLiters,
+          startTime: timeFormatted,
+          startFuel: 0,
+          endFuel: 0,
+          remarks: a.alert_text || 'Stationary fuel theft alert'
+        },
+        isInitial: false,
       });
     });
 
@@ -738,6 +860,7 @@ class ManualFuelService {
           remarks: `GPS Move: -${Number(l.fuel_consumed).toFixed(2)}L (${Number(l.distance_km).toFixed(1)} km)`,
           driverName: 'GPS Telemetry',
           isRefill: false,
+          isTheft: false,
           isInitial: false,
         });
       }
@@ -758,6 +881,7 @@ class ManualFuelService {
         remarks: 'Live Telemetry Estimate',
         driverName: 'System GPS',
         isRefill: false,
+        isTheft: false,
         isInitial: false,
       });
     }
@@ -768,10 +892,8 @@ class ManualFuelService {
     // Window aggregations
     const windowDistance = logs.reduce((sum, r) => sum + Number(r.distance_km || 0), 0);
     const windowFuelConsumed = logs.reduce((sum, r) => sum + Number(r.fuel_consumed || 0), 0);
-    const windowFuelRefilled = entriesRes.rows.reduce(
-      (sum, r) => sum + (r.entry_type === 'REFILL' ? Number(r.fuel_filled || 0) : 0),
-      0
-    );
+    const totalRefillLiters = refillEvents.reduce((acc, r) => acc + (r.liters || 0), 0);
+    const totalTheftLiters = theftEvents.reduce((acc, t) => acc + (t.liters || 0), 0);
 
     return {
       vehicleId,
@@ -782,7 +904,12 @@ class ManualFuelService {
       currentMileage: state ? Number(state.current_mileage) : (config ? Number(config.initial_mileage) : 4.5),
       totalDistance: Math.round((windowDistance > 0 ? windowDistance : (state ? Number(state.total_distance_travelled) : 0)) * 10) / 10,
       totalFuelConsumed: Math.round((windowFuelConsumed > 0 ? windowFuelConsumed : (state ? Number(state.total_fuel_consumed) : 0)) * 10) / 10,
-      totalFuelRefilled: Math.round((windowFuelRefilled > 0 ? windowFuelRefilled : (state ? Number(state.total_fuel_refilled) : 0)) * 10) / 10,
+      totalFuelRefilled: Math.round(totalRefillLiters * 10) / 10,
+      refillCount: refillEvents.length,
+      refills: refillEvents,
+      totalFuelTheft: Math.round(totalTheftLiters * 10) / 10,
+      theftCount: theftEvents.length,
+      thefts: theftEvents,
       timeline,
       mileageHistory: mileageRes.rows.map(m => ({
         date: new Date(m.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
