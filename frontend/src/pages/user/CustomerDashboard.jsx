@@ -1316,6 +1316,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             followSelected={true}
             showRoute={!!currentSelected}
             liveRouteMetrics={liveRouteMetrics}
+            hideGaugesOverlay={!!currentSelected}
             gaugesStyle={{
               left: typeof window !== 'undefined' && window.innerWidth > 768 ? '16px' : '12px',
               bottom: typeof window !== 'undefined' && window.innerWidth > 768 ? '20px' : '75px'
@@ -1349,6 +1350,221 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                       ? `${vehicles[0]?.plate || vehicles[0]?.name || 'Vehicle'} has no GPS fix yet. Showing default map.`
                       : 'Vehicles have not sent GPS data yet. Showing default map.')}
               </span>
+            </div>
+          )}
+
+          {/* ── Selected Vehicle Floating HUD Card (Bottom-Left) ── */}
+          {currentSelected && (
+            <div style={{
+              position: 'absolute',
+              bottom: window.innerWidth > 768 ? '20px' : '75px',
+              left: window.innerWidth > 768 ? '20px' : '12px',
+              zIndex: 1000,
+              background: 'rgba(255, 255, 255, 0.98)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid #E2E8F0',
+              borderRadius: '14px',
+              padding: '12px 14px',
+              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.12)',
+              width: window.innerWidth > 768 ? '330px' : 'calc(100% - 24px)',
+              maxWidth: '360px',
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
+            }}>
+              {/* Header: Name, Plate, Status pill & Close */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', gap: '8px' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {currentSelected.plate || currentSelected.name}
+                  </div>
+                  {currentSelected.plate && currentSelected.name && currentSelected.name !== currentSelected.plate && (
+                    <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {currentSelected.name}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                  <span style={{
+                    fontSize: '9.5px',
+                    fontWeight: 700,
+                    padding: '2px 7px',
+                    borderRadius: '12px',
+                    background: `${statusColors[getStatus(currentSelected)]}18`,
+                    color: statusColors[getStatus(currentSelected)],
+                    border: `1px solid ${statusColors[getStatus(currentSelected)]}35`
+                  }}>
+                    {statusLabels[getStatus(currentSelected)]}
+                  </span>
+                  <button
+                    onClick={() => setSelectedVehicle(null)}
+                    style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', cursor: 'pointer', padding: '3px', color: '#64748B', display: 'flex' }}
+                    title="Deselect"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* No GPS Fix Alert inside card if coordinates missing */}
+              {(!currentSelected.lat || !currentSelected.lng || isNaN(parseFloat(currentSelected.lat)) || parseFloat(currentSelected.lat) < 6.5) && (
+                <div style={{
+                  background: '#FEF3C7',
+                  border: '1px solid #FCD34D',
+                  borderRadius: '6px',
+                  padding: '5px 8px',
+                  marginBottom: '8px',
+                  fontSize: '10.5px',
+                  color: '#92400E',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <Info size={13} className="shrink-0 text-amber-600" />
+                  <span>No live GPS fix recorded. Device is offline or never connected.</span>
+                </div>
+              )}
+
+              {/* Metrics grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', padding: '7px 0', borderTop: '1px solid #F1F5F9', borderBottom: '1px solid #F1F5F9' }}>
+                <div style={{ background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Activity size={10} /> Speed
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', marginTop: '1px' }}>
+                    {formatSpeed(currentSelected.current_speed, currentSelected.is_online)}
+                  </div>
+                </div>
+                <div style={{ background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Key size={10} /> Ignition
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: currentSelected.current_ignition ? '#16A34A' : '#EF4444', marginTop: '1px' }}>
+                    {currentSelected.current_ignition ? 'ON' : 'OFF'}
+                  </div>
+                </div>
+                <div style={{ background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Navigation size={10} /> Today Dist
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', marginTop: '1px' }}>
+                    {liveRouteMetrics[currentSelected.id]?.cDist !== undefined ? Number(liveRouteMetrics[currentSelected.id].cDist).toFixed(2) : (Number(currentSelected.today_distance) || 0).toFixed(2)} km
+                  </div>
+                </div>
+                <div style={{ background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Battery size={10} /> Battery
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', marginTop: '1px' }}>
+                    {formatVoltage(currentSelected.current_voltage || currentSelected.metadata?.batteryVoltage)}
+                  </div>
+                </div>
+              </div>
+
+              {/* FUEL METRICS - Hide this field if estimated fuel is 0 or not positive */}
+              {hasVehicleFuelCapability(currentSelected) && Number(currentSelected.current_fuel) > 0 && (
+                <div style={{
+                  marginTop: '7px',
+                  padding: '7px 9px',
+                  borderRadius: '8px',
+                  background: '#F0F9FF',
+                  border: '1px solid #BAE6FD',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ width: '22px', height: '22px', borderRadius: '5px', background: '#0284C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Fuel size={13} color="#FFFFFF" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#0369A1', textTransform: 'uppercase' }}>Fuel Level</div>
+                      <div style={{ fontSize: '12px', fontWeight: 800, color: '#0C4A6E' }}>
+                        {`${Math.round(Number(currentSelected.current_fuel))} L`}
+                        {currentSelected.tank_capacity ? ` / ${currentSelected.tank_capacity} L` : ''}
+                      </div>
+                    </div>
+                  </div>
+                  {currentSelected.tank_capacity && (
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#0284C7', background: '#E0F2FE', padding: '1px 6px', borderRadius: '10px' }}>
+                      {Math.min(100, Math.round((Number(currentSelected.current_fuel) / Number(currentSelected.tank_capacity)) * 100))}%
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: (hasVehicleFuelCapability(currentSelected) && Number(currentSelected.current_fuel) > 0) ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)',
+                gap: '6px',
+                marginTop: '8px'
+              }}>
+                <button
+                  onClick={() => navigate(`/tracking?vehicle=${currentSelected.id}`)}
+                  style={{
+                    padding: '6px 8px',
+                    borderRadius: '7px',
+                    background: '#0F172A',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                  className="hover:opacity-90"
+                >
+                  <Navigation size={12} />
+                  <span>Live Track</span>
+                </button>
+                <button
+                  onClick={() => navigate(`/history?vehicle=${currentSelected.id}`)}
+                  style={{
+                    padding: '6px 8px',
+                    borderRadius: '7px',
+                    background: '#FFFFFF',
+                    color: '#334155',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                  className="hover:bg-slate-50"
+                >
+                  <History size={12} />
+                  <span>Playback</span>
+                </button>
+                {hasVehicleFuelCapability(currentSelected) && Number(currentSelected.current_fuel) > 0 && (
+                  <button
+                    onClick={() => navigate(`/fuel-analytics?vehicle=${currentSelected.id}`)}
+                    style={{
+                      padding: '6px 8px',
+                      borderRadius: '7px',
+                      background: '#0284C7',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
+                    }}
+                    className="hover:opacity-90"
+                  >
+                    <Activity size={12} />
+                    <span>Fuel</span>
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

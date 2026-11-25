@@ -528,7 +528,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
                   - {liveRouteMetrics[vehicle.id]?.cDist !== undefined ? Number(liveRouteMetrics[vehicle.id].cDist).toFixed(2) : (Number(vehicle.today_distance) || 0).toFixed(2)} kms
                 </td>
               </tr>
-              {vehicle.current_fuel !== undefined && vehicle.current_fuel !== null && Number(vehicle.current_fuel) >= 0 && (
+              {vehicle.current_fuel !== undefined && vehicle.current_fuel !== null && Number(vehicle.current_fuel) > 0 && (
                 <tr>
                   <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Estimated Fuel</td>
                   <td style={{ color: '#0284c7', fontWeight: 700, padding: '2px 0' }}>
@@ -792,7 +792,8 @@ const FleetMap = ({
   isNearbyActive = false,
   liveRouteMetrics = {},
   onRouteFetched,
-  gaugesStyle = {}
+  gaugesStyle = {},
+  hideGaugesOverlay = false
 }) => {
   const location = useLocation();
   // Support both singular (CustomerDashboard) and plural (TrackingPage) prop patterns
@@ -955,7 +956,7 @@ const FleetMap = ({
         />
       </MapContainer>
       {/* Real-time Speed & Fuel Live Gauges Overlay (Legacy Parity) */}
-      {singleSelectedVehicle && gaugesDismissedVehicleId !== singleSelectedVehicle.id && (
+      {!hideGaugesOverlay && singleSelectedVehicle && gaugesDismissedVehicleId !== singleSelectedVehicle.id && (
         <VehicleLiveGaugesOverlay
           vehicle={singleSelectedVehicle}
           onClose={() => setGaugesDismissedVehicleId(singleSelectedVehicle.id)}
