@@ -351,12 +351,13 @@ const VEHICLE_MODELS = [
 
 const DEVICE_MODELS = [
   'VOLTY', 'AIS140', 'AIS140 V2', 'GT06N (9964)', 'BSTPL',
-  'BSTPL-17IS', 'CONCOX', 'V5 4G', 'FMB 920', 'PT06', 'EC08', 'PN02', 'VOLTYFUEL', 'APMK', 'APM'
+  'BSTPL-17IS', 'CONCOX', 'V5 4G', 'FMB 920', 'PT06', 'EC08', 'PN02', 'VOLTYFUEL', 'APMK', 'APM', 'B20'
 ];
 
 const resolveDeviceModel = (raw) => {
   if (!raw) return '';
   const upper = String(raw).trim().toUpperCase();
+  if (upper.includes('B20') || upper.includes('5013')) return 'B20';
   if (upper.includes('VOLTYFUEL') || upper.includes('TRANSYNC') || upper.includes('NAV 140') || upper.includes('5011')) return 'VOLTYFUEL';
   if (upper.includes('VOLTY') || upper.includes('5004')) return 'VOLTY';
   if (upper.includes('AIS140 V2') || upper.includes('VAMO') || upper.includes('5003')) return 'AIS140 V2';
@@ -389,7 +390,8 @@ const DEVICE_MODEL_PORTS = {
   'BSTPL-17IS': '5010',
   'VOLTYFUEL': '5011',
   'APMK': '5012',
-  'APM': '5012'
+  'APM': '5012',
+  'B20': '5013'
 };
 
 const getDevicePort = (model) => {
