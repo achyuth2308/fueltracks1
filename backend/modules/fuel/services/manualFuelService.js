@@ -59,6 +59,21 @@ class ManualFuelService {
     try {
       await client.query('BEGIN');
 
+      // Verify or resolve valid organization UUID
+      let validOrgId = (orgId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)) ? orgId : null;
+      if (validOrgId) {
+        const orgCheck = await client.query('SELECT id FROM organizations WHERE id = $1', [validOrgId]);
+        if (orgCheck.rows.length === 0) validOrgId = null;
+      }
+      if (!validOrgId) {
+        const vOrg = await client.query('SELECT org_id FROM vehicles WHERE id = $1', [vehicleId]);
+        const candidateOrg = vOrg.rows[0]?.org_id;
+        if (candidateOrg && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateOrg)) {
+          const orgCheck2 = await client.query('SELECT id FROM organizations WHERE id = $1', [candidateOrg]);
+          if (orgCheck2.rows.length > 0) validOrgId = candidateOrg;
+        }
+      }
+
       const configRes = await client.query(
         `INSERT INTO vehicle_fuel_configs
            (vehicle_id, org_id, fuel_type, tank_capacity, initial_fuel,
@@ -66,6 +81,7 @@ class ManualFuelService {
             low_fuel_alert_threshold, critical_fuel_alert_threshold, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
          ON CONFLICT (vehicle_id) DO UPDATE SET
+           org_id = COALESCE(EXCLUDED.org_id, vehicle_fuel_configs.org_id),
            fuel_type = EXCLUDED.fuel_type,
            tank_capacity = EXCLUDED.tank_capacity,
            initial_fuel = EXCLUDED.initial_fuel,
@@ -78,7 +94,7 @@ class ManualFuelService {
          RETURNING *`,
         [
           vehicleId,
-          orgId,
+          validOrgId,
           fuelType,
           tankCapacity,
           initialFuel,
@@ -125,9 +141,15 @@ class ManualFuelService {
         );
       }
 
+      // Update vehicles.metadata safely with tankSize and manualTankCapacity
       await client.query(
-        'UPDATE vehicles SET manual_tank_capacity = $1 WHERE id = $2',
-        [tankCapacity, vehicleId]
+        `UPDATE vehicles 
+         SET metadata = jsonb_set(
+           jsonb_set(COALESCE(metadata, '{}'::jsonb), '{manualTankCapacity}', to_jsonb($1::text), true),
+           '{tankSize}', to_jsonb($1::text), true
+         )
+         WHERE id = $2`,
+        [String(tankCapacity), vehicleId]
       );
 
       await client.query('COMMIT');
@@ -236,7 +258,21 @@ class ManualFuelService {
 
       // 1. Audit trail: insert into manual_fuel_entries
       const rawDriverId = driverUser?.userId || driverUser?.id || null;
-      const driverId = (rawDriverId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawDriverId)) ? rawDriverId : null;
+      let driverId = (rawDriverId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawDriverId)) ? rawDriverId : null;
+      if (driverId) {
+        const userCheck = await client.query('SELECT id FROM users WHERE id = $1', [driverId]);
+        if (userCheck.rows.length === 0) {
+          driverId = null;
+        }
+      }
+
+      let entryOrgId = (config.org_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(config.org_id)) ? config.org_id : null;
+      if (entryOrgId) {
+        const orgCheck = await client.query('SELECT id FROM organizations WHERE id = $1', [entryOrgId]);
+        if (orgCheck.rows.length === 0) {
+          entryOrgId = null;
+        }
+      }
 
       const customEntryTime = (entryDate && !isNaN(new Date(entryDate).getTime())) ? new Date(entryDate) : new Date();
 
@@ -249,7 +285,7 @@ class ManualFuelService {
          RETURNING *`,
         [
           vehicleId,
-          config.org_id,
+          entryOrgId,
           driverId,
           driverUser?.name || 'Driver / Admin',
           entryType,

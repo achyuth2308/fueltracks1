@@ -148,7 +148,10 @@ const ManualFuelEntryPage = () => {
   const inputOdometer = parseFloat(odometer);
   const incrementalDistance = useMemo(() => {
     if (!isNaN(inputOdometer) && baseOdometer > 0 && inputOdometer > baseOdometer) {
-      return Math.round((inputOdometer - baseOdometer) * 10) / 10;
+      const diff = Math.round((inputOdometer - baseOdometer) * 10) / 10;
+      // If difference is abnormally large (> 3,000 KM), it indicates a baseline dashboard odometer adjustment, not a single trip
+      if (diff > 3000) return 0;
+      return diff;
     }
     return 0;
   }, [inputOdometer, baseOdometer]);

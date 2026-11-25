@@ -21,11 +21,15 @@ class ManualFuelController {
   async saveConfig(req, res, next) {
     try {
       const { vehicleId } = req.params;
-      const orgId = req.user.orgId;
+      const orgId = req.user?.orgId || req.user?.org_id;
       const config = await manualFuelService.upsertVehicleFuelConfig(vehicleId, orgId, req.body);
       res.json({ success: true, message: 'Vehicle fuel configuration saved successfully.', data: config });
     } catch (err) {
-      next(err);
+      console.error('[MANUAL_FUEL] Error saving fuel config:', err.message);
+      res.status(400).json({
+        success: false,
+        error: err.message || 'Failed to save vehicle fuel configuration.',
+      });
     }
   }
 
@@ -57,7 +61,11 @@ class ManualFuelController {
         data: result,
       });
     } catch (err) {
-      next(err);
+      console.error('[MANUAL_FUEL] Error submitting fuel entry:', err.message);
+      res.status(400).json({
+        success: false,
+        error: err.message || 'Error recording fuel entry.',
+      });
     }
   }
 
