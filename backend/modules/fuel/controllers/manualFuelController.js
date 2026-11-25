@@ -82,8 +82,12 @@ class ManualFuelController {
   async getChartData(req, res, next) {
     try {
       const { vehicleId } = req.params;
-      const { range } = req.query;
-      const data = await manualFuelService.getFuelChartData(vehicleId, range);
+      const { range, startDate, endDate, from, to } = req.query;
+      const data = await manualFuelService.getFuelChartData(vehicleId, {
+        range,
+        startDate: startDate || from,
+        endDate: endDate || to
+      });
       res.json({ success: true, data });
     } catch (err) {
       next(err);

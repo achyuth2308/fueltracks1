@@ -18,6 +18,8 @@ import {
   Droplets,
   Gauge,
   Calendar,
+  Clock,
+  RefreshCw,
   AlertTriangle,
   RotateCcw,
   Sparkles,
@@ -41,11 +43,17 @@ const CustomTooltip = ({ active, payload, label }) => {
               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
               : data.entryType === 'INITIAL'
               ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+              : data.entryType === 'GPS_DEPLETION'
+              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
               : data.entryType === 'CURRENT_ESTIMATE'
               ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
               : 'bg-slate-700 text-slate-300'
           }`}>
-            {data.entryType === 'CURRENT_ESTIMATE' ? 'Live Telemetry' : data.entryType}
+            {data.entryType === 'CURRENT_ESTIMATE'
+              ? 'Live Telemetry'
+              : data.entryType === 'GPS_DEPLETION'
+              ? 'GPS Telemetry'
+              : data.entryType}
           </span>
         </div>
 
@@ -90,6 +98,38 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+// Helpers for datetime-local
+const toDateTimeLocalString = (date) => {
+  const d = new Date(date);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const formatDisplayDateTime = (dtStr) => {
+  if (!dtStr) return '--/--/---- --:--';
+  const d = new Date(dtStr);
+  if (isNaN(d.getTime())) return dtStr;
+  const pad = (n) => String(n).padStart(2, '0');
+  const day = pad(d.getDate());
+  const month = pad(d.getMonth() + 1);
+  const year = d.getFullYear();
+  let hours = d.getHours();
+  const minutes = pad(d.getMinutes());
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  return `${day}/${month}/${year} ${pad(hours)}:${minutes} ${ampm}`;
+};
+
+const getInitialDates = () => {
+  const now = new Date();
+  const end = toDateTimeLocalString(now);
+  const startObj = new Date();
+  startObj.setDate(startObj.getDate() - 7);
+  startObj.setHours(0, 0, 0, 0);
+  const start = toDateTimeLocalString(startObj);
+  return { start, end };
+};
+
 /**
  * ManualFuelChartCard
  * Full interactive analytics graph for Manual Fuel Monitoring without physical sensors.
@@ -101,17 +141,32 @@ const ManualFuelChartCard = ({
   vehicles = [],
   onSelectVehicle,
 }) => {
-  const [selectedRange, setSelectedRange] = useState('30d');
+  const [customStart, setCustomStart] = useState(() => getInitialDates().start);
+  const [customEnd, setCustomEnd] = useState(() => getInitialDates().end);
+  const [selectedPreset, setSelectedPreset] = useState('last7d');
   const [activeMetric, setActiveMetric] = useState('level'); // 'level' | 'refills' | 'mileage'
   const [chartData, setChartData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchChart = () => {
+  const startInputRef = React.useRef(null);
+  const endInputRef = React.useRef(null);
+
+  const fetchChart = (startOverride, endOverride) => {
     if (!vehicleId) return;
+    const s = startOverride || customStart;
+    const e = endOverride || customEnd;
+
+    const sDate = new Date(s);
+    const eDate = new Date(e);
+    if (sDate > eDate) {
+      setError('"From" date cannot be after "To" date.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
-    getFuelChartData(vehicleId, selectedRange)
+    getFuelChartData(vehicleId, { startDate: s, endDate: e })
       .then(res => {
         if (res?.success) {
           setChartData(res.data);
@@ -128,7 +183,42 @@ const ManualFuelChartCard = ({
 
   useEffect(() => {
     fetchChart();
-  }, [vehicleId, selectedRange]);
+  }, [vehicleId]);
+
+  const handlePresetChange = (preset) => {
+    setSelectedPreset(preset);
+    const now = new Date();
+    let s = new Date();
+    let e = new Date();
+
+    if (preset === 'today') {
+      s.setHours(0, 0, 0, 0);
+    } else if (preset === 'yesterday') {
+      s.setDate(s.getDate() - 1);
+      s.setHours(0, 0, 0, 0);
+      e.setDate(e.getDate() - 1);
+      e.setHours(23, 59, 59, 999);
+    } else if (preset === 'last24h') {
+      s.setTime(now.getTime() - 24 * 60 * 60 * 1000);
+    } else if (preset === 'last7d') {
+      s.setDate(s.getDate() - 7);
+      s.setHours(0, 0, 0, 0);
+    } else if (preset === 'last30d') {
+      s.setDate(s.getDate() - 30);
+      s.setHours(0, 0, 0, 0);
+    } else if (preset === 'thisMonth') {
+      s.setDate(1);
+      s.setHours(0, 0, 0, 0);
+    } else {
+      return;
+    }
+
+    const sStr = toDateTimeLocalString(s);
+    const eStr = toDateTimeLocalString(e);
+    setCustomStart(sStr);
+    setCustomEnd(eStr);
+    fetchChart(sStr, eStr);
+  };
 
   const timeline = chartData?.timeline || [];
   const tankCapacity = chartData?.tankCapacity || 100;
@@ -138,7 +228,7 @@ const ManualFuelChartCard = ({
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-5">
       {/* Top Header & Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-slate-100">
         <div>
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-600">
@@ -156,7 +246,7 @@ const ManualFuelChartCard = ({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Optional Vehicle Switcher */}
           {vehicles && vehicles.length > 1 && onSelectVehicle && (
             <select
@@ -209,35 +299,109 @@ const ManualFuelChartCard = ({
             </button>
           </div>
 
-          {/* Range Switcher */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-bold">
-            {['7d', '30d', '90d'].map(rng => (
-              <button
-                key={rng}
-                type="button"
-                onClick={() => setSelectedRange(rng)}
-                className={`px-2 py-1 rounded-md transition-all cursor-pointer uppercase ${
-                  selectedRange === rng
-                    ? 'bg-orange-500 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {rng}
-              </button>
-            ))}
+          {/* From Date-Time Selector */}
+          <div
+            onClick={() => {
+              try { startInputRef.current?.showPicker?.(); } catch (e) { startInputRef.current?.focus?.(); }
+            }}
+            className="relative h-[32px] flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-300 hover:border-orange-500 rounded-lg px-2.5 shadow-xs transition-colors cursor-pointer shrink-0"
+            title="Click to select start date and time"
+          >
+            <div className="flex items-center gap-1 text-slate-500 shrink-0 pointer-events-none">
+              <Calendar className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">From</span>
+            </div>
+            <div className="font-mono text-xs font-semibold text-slate-800 select-none pointer-events-none">
+              {formatDisplayDateTime(customStart)}
+            </div>
+            <input
+              ref={startInputRef}
+              type="datetime-local"
+              value={customStart}
+              max={customEnd}
+              onClick={(e) => {
+                e.stopPropagation();
+                try { e.target.showPicker?.(); } catch (err) {}
+              }}
+              onChange={(e) => {
+                setCustomStart(e.target.value);
+                setSelectedPreset('custom');
+                setError(null);
+              }}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
           </div>
 
+          {/* To Date-Time Selector */}
+          <div
+            onClick={() => {
+              try { endInputRef.current?.showPicker?.(); } catch (e) { endInputRef.current?.focus?.(); }
+            }}
+            className="relative h-[32px] flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-300 hover:border-orange-500 rounded-lg px-2.5 shadow-xs transition-colors cursor-pointer shrink-0"
+            title="Click to select end date and time"
+          >
+            <div className="flex items-center gap-1 text-slate-500 shrink-0 pointer-events-none">
+              <Clock className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">To</span>
+            </div>
+            <div className="font-mono text-xs font-semibold text-slate-800 select-none pointer-events-none">
+              {formatDisplayDateTime(customEnd)}
+            </div>
+            <input
+              ref={endInputRef}
+              type="datetime-local"
+              value={customEnd}
+              min={customStart}
+              onClick={(e) => {
+                e.stopPropagation();
+                try { e.target.showPicker?.(); } catch (err) {}
+              }}
+              onChange={(e) => {
+                setCustomEnd(e.target.value);
+                setSelectedPreset('custom');
+                setError(null);
+              }}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+          </div>
+
+          {/* Preset Helper Dropdown */}
+          <select
+            value={selectedPreset}
+            onChange={(e) => handlePresetChange(e.target.value)}
+            className="h-[32px] text-xs font-semibold px-2 rounded-lg border border-slate-300 bg-slate-50 text-slate-700 hover:border-slate-400 focus:outline-none focus:border-orange-500 cursor-pointer shrink-0"
+            title="Quick date ranges"
+          >
+            <option value="custom">Custom Range</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="last24h">Last 24 Hours</option>
+            <option value="last7d">Last 7 Days</option>
+            <option value="last30d">Last 30 Days</option>
+            <option value="thisMonth">This Month</option>
+          </select>
+
+          {/* Apply Range Button */}
           <button
             type="button"
-            onClick={fetchChart}
+            onClick={() => fetchChart()}
             disabled={loading}
-            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer"
-            title="Refresh Chart"
+            className="h-[32px] flex items-center gap-1.5 px-3 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs shadow-orange-500/20 disabled:opacity-50 shrink-0 cursor-pointer"
+            title="Apply Date-Time Range"
           >
-            <RotateCcw size={14} className={loading ? 'animate-spin text-orange-500' : ''} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>{loading ? 'Loading...' : 'Apply Range'}</span>
           </button>
         </div>
       </div>
+
+      {/* Error Alert Banner */}
+      {error && (
+        <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-semibold">
+          <AlertTriangle size={15} className="shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* KPI Stats Row */}
       {chartData && (

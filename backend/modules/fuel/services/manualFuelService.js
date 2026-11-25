@@ -572,20 +572,94 @@ class ManualFuelService {
   /**
    * Get Fuel Trend & Mileage Graph data for a vehicle
    */
-  async getFuelChartData(vehicleId, range = '30d') {
+  async getFuelChartData(vehicleId, options = '30d') {
+    let range = null;
+    let startDate = null;
+    let endDate = null;
+
+    if (typeof options === 'string') {
+      range = options;
+    } else if (options && typeof options === 'object') {
+      range = options.range;
+      startDate = options.startDate || options.from;
+      endDate = options.endDate || options.to;
+    }
+
     const config = await this.getVehicleFuelConfig(vehicleId);
     const state = await this.getVehicleFuelState(vehicleId);
 
+    let startIso = null;
+    let endIso = null;
+    if (startDate) {
+      const s = new Date(startDate);
+      if (!isNaN(s.getTime())) startIso = s.toISOString();
+    }
+    if (endDate) {
+      const e = new Date(endDate);
+      if (!isNaN(e.getTime())) endIso = e.toISOString();
+    }
+
     let intervalClause = '';
-    if (range === '7d') intervalClause = "AND entry_time >= NOW() - INTERVAL '7 days'";
-    else if (range === '30d') intervalClause = "AND entry_time >= NOW() - INTERVAL '30 days'";
-    else if (range === '90d') intervalClause = "AND entry_time >= NOW() - INTERVAL '90 days'";
+    const queryParams = [vehicleId];
+
+    if (startIso && endIso) {
+      queryParams.push(startIso, endIso);
+      intervalClause = `AND entry_time >= $2 AND entry_time <= $3`;
+    } else if (startIso) {
+      queryParams.push(startIso);
+      intervalClause = `AND entry_time >= $2`;
+    } else if (range === '7d') {
+      intervalClause = "AND entry_time >= NOW() - INTERVAL '7 days'";
+    } else if (range === '90d') {
+      intervalClause = "AND entry_time >= NOW() - INTERVAL '90 days'";
+    } else {
+      intervalClause = "AND entry_time >= NOW() - INTERVAL '30 days'";
+    }
 
     const entriesRes = await db.query(
       `SELECT * FROM manual_fuel_entries
        WHERE vehicle_id = $1 ${intervalClause}
        ORDER BY entry_time ASC`,
-      [vehicleId]
+      queryParams
+    );
+
+    // Baseline entry prior to the window (if custom start date is specified)
+    let baselineEntry = null;
+    if (startIso) {
+      const priorRes = await db.query(
+        `SELECT * FROM manual_fuel_entries
+         WHERE vehicle_id = $1 AND entry_time < $2
+         ORDER BY entry_time DESC LIMIT 1`,
+        [vehicleId, startIso]
+      );
+      if (priorRes.rows.length > 0) {
+        baselineEntry = priorRes.rows[0];
+      }
+    }
+
+    // Query GPS consumption logs for the selected window
+    let logsClause = '';
+    const logsParams = [vehicleId];
+    if (startIso && endIso) {
+      logsParams.push(startIso, endIso);
+      logsClause = `AND created_at >= $2 AND created_at <= $3`;
+    } else if (startIso) {
+      logsParams.push(startIso);
+      logsClause = `AND created_at >= $2`;
+    } else if (range === '7d') {
+      logsClause = "AND created_at >= NOW() - INTERVAL '7 days'";
+    } else if (range === '90d') {
+      logsClause = "AND created_at >= NOW() - INTERVAL '90 days'";
+    } else {
+      logsClause = "AND created_at >= NOW() - INTERVAL '30 days'";
+    }
+
+    const logsRes = await db.query(
+      `SELECT distance_km, fuel_consumed, fuel_before, fuel_after, end_odometer, created_at
+       FROM fuel_consumption_logs
+       WHERE vehicle_id = $1 ${logsClause}
+       ORDER BY created_at ASC`,
+      logsParams
     );
 
     const mileageRes = await db.query(
@@ -595,10 +669,32 @@ class ManualFuelService {
       [vehicleId]
     );
 
-    const entries = entriesRes.rows;
     const timeline = [];
 
-    entries.forEach((e) => {
+    // Prepend baseline entry if earlier than first entry in range
+    if (baselineEntry && (entriesRes.rows.length === 0 || new Date(entriesRes.rows[0].entry_time).getTime() > new Date(startIso).getTime())) {
+      const d = new Date(baselineEntry.entry_time);
+      timeline.push({
+        timestamp: baselineEntry.entry_time,
+        date: isNaN(d.getTime()) ? 'Baseline' : d.toLocaleDateString('en-IN', {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        fuelLevel: Number(baselineEntry.fuel_quantity),
+        fuelFilled: Number(baselineEntry.fuel_filled || 0),
+        odometer: Number(baselineEntry.odometer || 0),
+        entryType: baselineEntry.entry_type,
+        remarks: 'Baseline before selected range',
+        driverName: baselineEntry.driver_name || 'Driver',
+        isRefill: baselineEntry.entry_type === 'REFILL',
+        isInitial: baselineEntry.entry_type === 'INITIAL',
+      });
+    }
+
+    // Add manual refill & audit entries
+    entriesRes.rows.forEach((e) => {
       const d = new Date(e.entry_time);
       timeline.push({
         timestamp: e.entry_time,
@@ -619,10 +715,41 @@ class ManualFuelService {
       });
     });
 
-    if (state && timeline.length > 0) {
+    // Sample GPS consumption logs (max 100 points for smooth Recharts rendering)
+    const logs = logsRes.rows;
+    if (logs.length > 0) {
+      const maxSample = 100;
+      const step = logs.length > maxSample ? Math.ceil(logs.length / maxSample) : 1;
+      for (let i = 0; i < logs.length; i += step) {
+        const l = logs[i];
+        const d = new Date(l.created_at);
+        timeline.push({
+          timestamp: l.created_at,
+          date: isNaN(d.getTime()) ? 'GPS' : d.toLocaleDateString('en-IN', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          fuelLevel: Math.round(Number(l.fuel_after) * 10) / 10,
+          fuelFilled: 0,
+          odometer: Number(l.end_odometer || 0),
+          entryType: 'GPS_DEPLETION',
+          remarks: `GPS Move: -${Number(l.fuel_consumed).toFixed(2)}L (${Number(l.distance_km).toFixed(1)} km)`,
+          driverName: 'GPS Telemetry',
+          isRefill: false,
+          isInitial: false,
+        });
+      }
+    }
+
+    // Add current live estimate if window includes now
+    const now = new Date();
+    const isWindowLive = !endIso || new Date(endIso).getTime() >= (now.getTime() - 15 * 60 * 1000);
+    if (state && isWindowLive) {
       const curFuel = Number(state.current_fuel);
       timeline.push({
-        timestamp: new Date().toISOString(),
+        timestamp: now.toISOString(),
         date: 'Now (Live)',
         fuelLevel: Math.round(curFuel * 10) / 10,
         fuelFilled: 0,
@@ -635,6 +762,17 @@ class ManualFuelService {
       });
     }
 
+    // Sort timeline chronologically
+    timeline.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    // Window aggregations
+    const windowDistance = logs.reduce((sum, r) => sum + Number(r.distance_km || 0), 0);
+    const windowFuelConsumed = logs.reduce((sum, r) => sum + Number(r.fuel_consumed || 0), 0);
+    const windowFuelRefilled = entriesRes.rows.reduce(
+      (sum, r) => sum + (r.entry_type === 'REFILL' ? Number(r.fuel_filled || 0) : 0),
+      0
+    );
+
     return {
       vehicleId,
       tankCapacity: config ? Number(config.tank_capacity) : 100,
@@ -642,9 +780,9 @@ class ManualFuelService {
       criticalThreshold: config ? Number(config.critical_fuel_alert_threshold || 8) : 8,
       currentFuel: state ? Number(state.current_fuel) : 0,
       currentMileage: state ? Number(state.current_mileage) : (config ? Number(config.initial_mileage) : 4.5),
-      totalDistance: state ? Number(state.total_distance_travelled) : 0,
-      totalFuelConsumed: state ? Number(state.total_fuel_consumed) : 0,
-      totalFuelRefilled: state ? Number(state.total_fuel_refilled) : 0,
+      totalDistance: Math.round((windowDistance > 0 ? windowDistance : (state ? Number(state.total_distance_travelled) : 0)) * 10) / 10,
+      totalFuelConsumed: Math.round((windowFuelConsumed > 0 ? windowFuelConsumed : (state ? Number(state.total_fuel_consumed) : 0)) * 10) / 10,
+      totalFuelRefilled: Math.round((windowFuelRefilled > 0 ? windowFuelRefilled : (state ? Number(state.total_fuel_refilled) : 0)) * 10) / 10,
       timeline,
       mileageHistory: mileageRes.rows.map(m => ({
         date: new Date(m.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),

@@ -30,7 +30,8 @@ export const getFuelEntries = async (vehicleId, params = {}) => {
   return response.data;
 };
 
-export const getFuelChartData = async (vehicleId, range = '30d') => {
-  const response = await axiosInstance.get(`/api/fuel/manual/chart/${vehicleId}`, { params: { range } });
+export const getFuelChartData = async (vehicleId, params = {}) => {
+  const queryParams = typeof params === 'string' ? { range: params } : params;
+  const response = await axiosInstance.get(`/api/fuel/manual/chart/${vehicleId}`, { params: queryParams });
   return response.data;
 };
