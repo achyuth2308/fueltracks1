@@ -792,8 +792,7 @@ const FleetMap = ({
   isNearbyActive = false,
   liveRouteMetrics = {},
   onRouteFetched,
-  gaugesStyle = {},
-  hideGaugesOverlay = false
+  gaugesStyle = {}
 }) => {
   const location = useLocation();
   // Support both singular (CustomerDashboard) and plural (TrackingPage) prop patterns
@@ -956,7 +955,7 @@ const FleetMap = ({
         />
       </MapContainer>
       {/* Real-time Speed & Fuel Live Gauges Overlay (Legacy Parity) */}
-      {!hideGaugesOverlay && singleSelectedVehicle && gaugesDismissedVehicleId !== singleSelectedVehicle.id && (
+      {singleSelectedVehicle && gaugesDismissedVehicleId !== singleSelectedVehicle.id && (
         <VehicleLiveGaugesOverlay
           vehicle={singleSelectedVehicle}
           onClose={() => setGaugesDismissedVehicleId(singleSelectedVehicle.id)}
