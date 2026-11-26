@@ -242,6 +242,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
           roles: ['superadmin', 'dealer', 'customer'],
           ...(!isSuperAdminOrDealer ? {
             subItems: [
+              { name: 'Live Dashboard', path: '/dashboard' },
               { name: 'Fleet Dashboard', path: '/admin/reports/dashboard' },
             ]
           } : {})
@@ -841,7 +842,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                             }));
                             if (location.pathname !== item.path) {
                               if (typeof window !== "undefined" && window.innerWidth <= 768 && toggleMobileSidebar) toggleMobileSidebar(false);
-                              navigate(item.path);
+                              window.location.href = item.path;
                             }
                             return;
                           }
