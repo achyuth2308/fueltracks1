@@ -1061,6 +1061,140 @@ class ManualFuelService {
     const res = await db.query(query, params);
     return res.rows;
   }
+
+  /**
+   * Non-Sensor Fuel Report
+   * Detailed report with current fuel, range, entered fuel, fuel used, mileage, and transaction logs
+   */
+  async getNonSensorFuelReport(orgId, role, userId, { vehicleId, startDate, endDate } = {}) {
+    let whereClause = 'v.is_active = TRUE';
+    const params = [];
+
+    if (role === 'customer' && userId) {
+      params.push(userId);
+      whereClause += ` AND v.id IN (
+        SELECT vg.vehicle_id 
+        FROM vehicle_groups vg
+        JOIN user_groups ug ON vg.group_id = ug.group_id
+        WHERE ug.user_id = $${params.length}
+      )`;
+    } else if (role !== 'superadmin' && orgId) {
+      params.push(orgId);
+      whereClause += ` AND (o.id = $${params.length} OR o.parent_id = $${params.length})`;
+    }
+
+    if (vehicleId && vehicleId !== 'all') {
+      params.push(vehicleId);
+      whereClause += ` AND v.id = $${params.length}`;
+    }
+
+    const summaryQuery = `
+      SELECT
+        v.id as vehicle_id,
+        v.plate,
+        COALESCE(v.name, v.plate) as vehicle_name,
+        v.category,
+        COALESCE(vfc.tank_capacity, 0) as tank_capacity,
+        COALESCE(vfc.fuel_type, 'Diesel') as fuel_type,
+        vfc.initial_fuel,
+        COALESCE(vfs.current_fuel, vfc.initial_fuel, 0) as current_fuel,
+        COALESCE(vfs.current_mileage, vfc.initial_mileage, 8.0) as current_mileage,
+        COALESCE(vfs.total_distance_travelled, 0) as total_distance_travelled,
+        COALESCE(vfs.total_fuel_consumed, 0) as total_fuel_consumed,
+        COALESCE(vfs.total_fuel_refilled, 0) as total_fuel_refilled,
+        COALESCE(vfs.estimated_range_km, ROUND(COALESCE(vfs.current_fuel, 0) * COALESCE(vfs.current_mileage, vfc.initial_mileage, 8.0), 1)) as estimated_range_km,
+        vfs.last_known_odometer,
+        vfs.last_refill_date,
+        vfs.last_entry_date,
+        COALESCE(vfs.fuel_status, 'Normal') as fuel_status,
+        COALESCE(mfe.fuel_quantity, vfc.initial_fuel, 0) as last_entered_fuel,
+        COALESCE(mfe.fuel_filled, 0) as last_fuel_filled,
+        mfe.odometer as last_entry_odometer,
+        mfe.entry_time as last_entry_time,
+        mfe.driver_name as last_driver_name,
+        mfe.entry_type as last_entry_type,
+        mfe.remarks as last_remarks
+      FROM vehicles v
+      JOIN organizations o ON v.org_id = o.id
+      JOIN vehicle_fuel_configs vfc ON vfc.vehicle_id = v.id
+      LEFT JOIN vehicle_fuel_states vfs ON vfs.vehicle_id = v.id
+      LEFT JOIN LATERAL (
+        SELECT fuel_quantity, fuel_filled, odometer, entry_time, driver_name, entry_type, remarks
+        FROM manual_fuel_entries
+        WHERE vehicle_id = v.id
+        ORDER BY entry_time DESC LIMIT 1
+      ) mfe ON true
+      WHERE ${whereClause}
+      ORDER BY v.name ASC
+    `;
+
+    const summaryRes = await db.query(summaryQuery, params);
+
+    // Also fetch transaction entries within date range
+    let entriesWhere = 'v.is_active = TRUE AND vfc.id IS NOT NULL';
+    const entriesParams = [];
+
+    if (role === 'customer' && userId) {
+      entriesParams.push(userId);
+      entriesWhere += ` AND v.id IN (
+        SELECT vg.vehicle_id 
+        FROM vehicle_groups vg
+        JOIN user_groups ug ON vg.group_id = ug.group_id
+        WHERE ug.user_id = $${entriesParams.length}
+      )`;
+    } else if (role !== 'superadmin' && orgId) {
+      entriesParams.push(orgId);
+      entriesWhere += ` AND (o.id = $${entriesParams.length} OR o.parent_id = $${entriesParams.length})`;
+    }
+
+    if (vehicleId && vehicleId !== 'all') {
+      entriesParams.push(vehicleId);
+      entriesWhere += ` AND v.id = $${entriesParams.length}`;
+    }
+
+    if (startDate) {
+      entriesParams.push(startDate);
+      entriesWhere += ` AND mfe.entry_time >= $${entriesParams.length}`;
+    }
+    if (endDate) {
+      entriesParams.push(endDate);
+      entriesWhere += ` AND mfe.entry_time <= $${entriesParams.length}`;
+    }
+
+    const entriesQuery = `
+      SELECT
+        mfe.id,
+        mfe.vehicle_id,
+        mfe.entry_type,
+        mfe.fuel_quantity as entered_fuel,
+        mfe.fuel_filled,
+        mfe.odometer,
+        mfe.estimated_fuel_before,
+        mfe.fuel_difference,
+        mfe.entry_time,
+        mfe.driver_name,
+        mfe.remarks,
+        v.plate,
+        COALESCE(v.name, v.plate) as vehicle_name,
+        vfc.tank_capacity,
+        COALESCE(vfs.current_mileage, vfc.initial_mileage, 8.0) as mileage
+      FROM manual_fuel_entries mfe
+      JOIN vehicles v ON v.id = mfe.vehicle_id
+      JOIN organizations o ON v.org_id = o.id
+      JOIN vehicle_fuel_configs vfc ON vfc.vehicle_id = v.id
+      LEFT JOIN vehicle_fuel_states vfs ON vfs.vehicle_id = v.id
+      WHERE ${entriesWhere}
+      ORDER BY mfe.entry_time DESC
+      LIMIT 1000
+    `;
+
+    const entriesRes = await db.query(entriesQuery, entriesParams);
+
+    return {
+      vehicles: summaryRes.rows,
+      entries: entriesRes.rows
+    };
+  }
 }
 
 module.exports = new ManualFuelService();

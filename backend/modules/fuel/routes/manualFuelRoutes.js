@@ -13,6 +13,7 @@ router.post('/config/:vehicleId', (req, res, next) => manualFuelController.saveC
 router.get('/state/:vehicleId', (req, res, next) => manualFuelController.getState(req, res, next));
 router.get('/chart/:vehicleId', (req, res, next) => manualFuelController.getChartData(req, res, next));
 router.get('/overview', (req, res, next) => manualFuelController.getOverview(req, res, next));
+router.get('/report', (req, res, next) => manualFuelController.getReport(req, res, next));
 
 // Driver manual entries & history
 router.post('/entry/:vehicleId', (req, res, next) => manualFuelController.submitEntry(req, res, next));

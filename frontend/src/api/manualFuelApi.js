@@ -35,3 +35,8 @@ export const getFuelChartData = async (vehicleId, params = {}) => {
   const response = await axiosInstance.get(`/api/fuel/manual/chart/${vehicleId}`, { params: queryParams });
   return response.data;
 };
+
+export const getNonSensorFuelReport = async (params = {}) => {
+  const response = await axiosInstance.get('/api/fuel/manual/report', { params });
+  return response.data;
+};

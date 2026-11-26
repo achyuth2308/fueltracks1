@@ -117,6 +117,23 @@ class ManualFuelController {
       next(err);
     }
   }
+
+  /**
+   * GET /api/fuel/manual/report
+   * Non-sensor fuel report with fuel, range, entered fuel, fuel used, and logs
+   */
+  async getReport(req, res, next) {
+    try {
+      const orgId = req.user.orgId;
+      const role = req.user.role;
+      const userId = req.user.userId;
+      const { vehicleId, startDate, endDate } = req.query;
+      const data = await manualFuelService.getNonSensorFuelReport(orgId, role, userId, { vehicleId, startDate, endDate });
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new ManualFuelController();

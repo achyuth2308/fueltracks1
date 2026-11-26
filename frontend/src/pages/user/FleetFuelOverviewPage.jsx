@@ -1,5 +1,5 @@
 import React from 'react';
-import { Fuel, ArrowLeft, Droplets } from 'lucide-react';
+import { Fuel, ArrowLeft, Droplets, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ManualFuelDashboardSection from '../../components/fuel/ManualFuelDashboardSection';
 
@@ -40,6 +40,14 @@ const FleetFuelOverviewPage = () => {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => navigate('/fuel-report')}
+            className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-extrabold text-xs shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+          >
+            <FileText size={14} className="text-orange-600" />
+            <span>Fuel Report</span>
+          </button>
           <button
             type="button"
             onClick={() => navigate('/fuel-entry')}

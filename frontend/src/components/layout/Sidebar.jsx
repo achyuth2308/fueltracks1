@@ -266,7 +266,8 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
           subItems: [
             { name: 'Fuel Overview', path: '/fuel-overview' },
             { name: 'Fuel Graph', path: '/fuel-graph' },
-            { name: 'Fuel Entry', path: '/fuel-entry' }
+            { name: 'Fuel Entry', path: '/fuel-entry' },
+            { name: 'Fuel Report', path: '/fuel-report' }
           ]
         },
         ...(hasFuelFeature ? [{
@@ -327,6 +328,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
             { name: 'Stoppage', path: '/admin/reports/stoppage' },
             { name: 'Individual', path: '/admin/reports/individual' },
             { name: 'Vehicle Consolidated', path: '/admin/reports/consolidated' },
+            { name: 'Non-Sensor Fuel Report', path: '/fuel-report' },
             ...(hasFuelFeature ? [{
               name: 'Fuel Reports',
               path: '/admin/reports/fuel-consumption',

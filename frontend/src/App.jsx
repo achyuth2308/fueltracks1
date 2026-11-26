@@ -77,6 +77,7 @@ import CertificateVerifyPage from './pages/CertificateVerifyPage';
 import SwitchLoginPage from './pages/admin/SwitchLoginPage';
 import FleetFuelOverviewPage from './pages/user/FleetFuelOverviewPage';
 import NonSensorFuelGraphPage from './pages/user/NonSensorFuelGraphPage';
+import NonSensorFuelReportPage from './pages/reports/NonSensorFuelReportPage';
 
 function App() {
   // Share vehicles state list globally to update the Topbar statistics dynamically
@@ -114,6 +115,8 @@ function App() {
               <Route path="fuel-raw-data" element={<FuelRawDataPage />} />
               <Route path="fuel-entry" element={<ManualFuelEntryPage />} />
               <Route path="manual-fuel-entry" element={<ManualFuelEntryPage />} />
+              <Route path="fuel-report" element={<NonSensorFuelReportPage />} />
+              <Route path="non-sensor-fuel-report" element={<NonSensorFuelReportPage />} />
               <Route path="device-data" element={<DeviceDataPage />} />
               <Route path="device-data/:id" element={<DeviceDataPage />} />
 
@@ -193,6 +196,7 @@ function App() {
                     <Route path="lph-burn-rate" element={<FuelReportsPage type="lph" />} />
                     <Route path="individual" element={<IndividualReportPage />} />
                     <Route path="manual-trips" element={<ManualTripsReportPage />} />
+                    <Route path="non-sensor-fuel" element={<NonSensorFuelReportPage />} />
                     <Route path="ignition" element={<IgnitionReportPage />} />
                     <Route path="activity" element={<VehicleActivityReportPage />} />
                     <Route path="geofence-transit" element={<GeofenceTransitReportPage />} />
