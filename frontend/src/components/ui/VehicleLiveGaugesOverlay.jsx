@@ -418,11 +418,11 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {}, onClose }) => {
                 x={cx}
                 y={cy - 8}
                 textAnchor="middle"
-                fontSize="11.5"
+                fontSize={isManualFuel ? "10" : "11.5"}
                 fontWeight="700"
                 fill="#0F172A"
               >
-                {isManualFuel ? 'Est. Fuel' : 'Fuel'} - {Math.round(currentFuel)} Ltr
+                {isManualFuel ? 'Non-Sensor Fuel' : 'Fuel'} - {Math.round(currentFuel)} Ltr
               </text>
             </svg>
           </div>
@@ -441,7 +441,7 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {}, onClose }) => {
             )}
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '9px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
-                {isManualFuel ? 'Est. Range' : 'Estimated Distance'}
+                Range
               </div>
               <div style={{ fontSize: '11px', fontWeight: 700, color: '#0F172A', marginTop: '1px' }}>
                 {estimatedKm} Km

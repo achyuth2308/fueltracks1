@@ -560,7 +560,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
                 return (
                   <>
                     <tr>
-                      <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Estimated Fuel</td>
+                      <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Non-Sensor Fuel</td>
                       <td style={{ color: '#0284c7', fontWeight: 700, padding: '2px 0' }}>
                         - {Math.round(Number(vehicle.current_fuel))} L {vehicle.tank_capacity ? `(${Math.min(100, Math.round((Number(vehicle.current_fuel) / Number(vehicle.tank_capacity)) * 100))}%)` : ''}
                       </td>
@@ -572,7 +572,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
                       </td>
                     </tr>
                     <tr>
-                      <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Estimated Range</td>
+                      <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Range</td>
                       <td style={{ color: '#16a34a', fontWeight: 700, padding: '2px 0' }}>
                         - {Math.round(estRange)} kms
                       </td>
