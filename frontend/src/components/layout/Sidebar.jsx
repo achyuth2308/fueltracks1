@@ -839,7 +839,8 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                               ...prev,
                               [item.name]: !isSubMenuOpen
                             }));
-                            if (!customIsActive) {
+                            if (location.pathname !== item.path) {
+                              if (typeof window !== "undefined" && window.innerWidth <= 768 && toggleMobileSidebar) toggleMobileSidebar(false);
                               navigate(item.path);
                             }
                             return;
