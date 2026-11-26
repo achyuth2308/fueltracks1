@@ -386,7 +386,7 @@ const OnBoardDevicePage = () => {
         id: Date.now() + i,
         licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
         deviceId: '',
-        deviceType: 'VOLTY',
+        deviceType: '',
         vehicleId: '',
         vehicleName: '',
         vehicleTypeSelect: '',
@@ -568,7 +568,7 @@ const OnBoardDevicePage = () => {
       id: Date.now() + devices.length,
       licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
       deviceId: '',
-      deviceType: 'VOLTY',
+      deviceType: '',
       vehicleId: '',
       vehicleName: '',
       vehicleTypeSelect: '',
@@ -621,6 +621,14 @@ const OnBoardDevicePage = () => {
         if (invalidRows.length > 0) {
           throw new Error('Device IMEI must be exactly 15 numeric digits compulsory. Less than or more than 15 digits cannot be accepted.');
         }
+
+        // Validate Device Type is selected for all rows
+        for (let i = 0; i < devices.length; i++) {
+          if (!devices[i].deviceType || !String(devices[i].deviceType).trim()) {
+            throw new Error(`Row ${i + 1}: Please select a Device Type.`);
+          }
+        }
+
         for (let i = 0; i < devices.length; i++) {
           const did = String(devices[i].deviceId || '').trim();
           if (imeiStatus[i] === 'exists') {
@@ -1123,13 +1131,13 @@ const OnBoardDevicePage = () => {
                       <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '155px', borderRight: '1px solid #E2E8F0' }}>
                         Device ID(IMEI) <span style={{ color: '#EF4444' }}>*</span>
                       </th>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '125px', borderRight: '1px solid #E2E8F0' }}>Vehicle Id</th>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '120px', borderRight: '1px solid #E2E8F0' }}>GPS SIM 1</th>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '120px', borderRight: '1px solid #E2E8F0' }}>GPS SIM 2</th>
                       <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '165px', borderRight: '1px solid #E2E8F0' }}>
                         Device Type <span style={{ color: '#EF4444' }}>*</span>
                       </th>
-                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '125px', borderRight: '1px solid #E2E8F0' }}>Vehicle Id</th>
                       <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '135px', borderRight: '1px solid #E2E8F0' }}>Vehicle Type</th>
-                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '120px', borderRight: '1px solid #E2E8F0' }}>GPS SIM 1</th>
-                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '120px', borderRight: '1px solid #E2E8F0' }}>GPS SIM 2</th>
                       <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, textAlign: 'center', width: '120px' }}>Action</th>
                     </tr>
                   </thead>
@@ -1199,12 +1207,33 @@ const OnBoardDevicePage = () => {
                               </div>
                             )}
                           </td>
+                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '125px' }}>
+                            <input
+                              type="text" placeholder="Vehicle Id" value={device.vehicleId}
+                              onChange={(e) => updateDevice(idx, 'vehicleId', e.target.value)}
+                              style={{ ...inputStyle, height: '32px', padding: '3px 8px', fontSize: '11.5px' }}
+                            />
+                          </td>
+                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '120px' }}>
+                            <input
+                              type="text" placeholder="GPS SIM 1" value={device.gpsSimNo}
+                              onChange={(e) => updateDevice(idx, 'gpsSimNo', e.target.value)}
+                              style={{ ...inputStyle, height: '32px', padding: '3px 8px', fontSize: '11.5px' }}
+                            />
+                          </td>
+                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '125px' }}>
+                            <input
+                              type="text" placeholder="GPS SIM 2" value={device.gpsSimNo2 || ''}
+                              onChange={(e) => updateDevice(idx, 'gpsSimNo2', e.target.value)}
+                              style={{ ...inputStyle, height: '32px', padding: '3px 8px', fontSize: '11.5px' }}
+                            />
+                          </td>
                           <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '165px' }}>
                             <SearchableSelect
                               options={DEVICE_TYPE_OPTIONS}
                               value={device.deviceType}
-                              onChange={(val) => updateDevice(idx, 'deviceType', val || 'VOLTY')}
-                              placeholder="-- Device Type --"
+                              onChange={(val) => updateDevice(idx, 'deviceType', val || '')}
+                              placeholder="-- Select Device Type --"
                               searchPlaceholder="Search type..."
                               emptyMessage="No type found"
                               usePortal={true}
@@ -1216,13 +1245,6 @@ const OnBoardDevicePage = () => {
                                 borderRadius: '5px',
                                 background: '#FFFFFF'
                               }}
-                            />
-                          </td>
-                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '125px' }}>
-                            <input
-                              type="text" placeholder="Vehicle Id" value={device.vehicleId}
-                              onChange={(e) => updateDevice(idx, 'vehicleId', e.target.value)}
-                              style={{ ...inputStyle, height: '32px', padding: '3px 8px', fontSize: '11.5px' }}
                             />
                           </td>
                           <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '135px' }}>
@@ -1242,20 +1264,6 @@ const OnBoardDevicePage = () => {
                                 borderRadius: '5px',
                                 background: '#FFFFFF'
                               }}
-                            />
-                          </td>
-                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '120px' }}>
-                            <input
-                              type="text" placeholder="GPS SIM 1" value={device.gpsSimNo}
-                              onChange={(e) => updateDevice(idx, 'gpsSimNo', e.target.value)}
-                              style={{ ...inputStyle, height: '32px', padding: '3px 8px', fontSize: '11.5px' }}
-                            />
-                          </td>
-                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '125px' }}>
-                            <input
-                              type="text" placeholder="GPS SIM 2" value={device.gpsSimNo2 || ''}
-                              onChange={(e) => updateDevice(idx, 'gpsSimNo2', e.target.value)}
-                              style={{ ...inputStyle, height: '32px', padding: '3px 8px', fontSize: '11.5px' }}
                             />
                           </td>
                           <td style={{ padding: '6px 6px', textAlign: 'center', width: '120px' }}>

@@ -569,36 +569,8 @@ const DevicesAdminPage = () => {
                           >
                             <Edit2 size={13} />
                           </button>
-                        ) : null}
-                        {isSuperAdmin && (
-                          <button
-                            onClick={(e) => handleDelete(d.id, e)}
-                            title="Delete Device"
-                            style={{
-                              padding: '5px',
-                              borderRadius: '6px',
-                              border: '1px solid #E2E8F0',
-                              background: '#FFFFFF',
-                              cursor: 'pointer',
-                              color: '#94A3B8',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.15s'
-                            }}
-                            onMouseEnter={e => {
-                              e.currentTarget.style.color = '#DC2626';
-                              e.currentTarget.style.borderColor = '#FCA5A5';
-                              e.currentTarget.style.background = '#FEF2F2';
-                            }}
-                            onMouseLeave={e => {
-                              e.currentTarget.style.color = '#94A3B8';
-                              e.currentTarget.style.borderColor = '#E2E8F0';
-                              e.currentTarget.style.background = '#FFFFFF';
-                            }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                        ) : (
+                          <span style={{ fontSize: '11px', color: '#94A3B8' }}>—</span>
                         )}
                       </div>
                     </td>

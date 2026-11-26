@@ -351,105 +351,113 @@ const DashboardPage = ({ setAppVehicles }) => {
         fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
       }}
     >
-      {/* Top Header & Welcome Banner */}
-      <div className="px-4 md:px-6 pt-3 pb-2 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-[19px] md:text-[21px] font-[900] text-slate-900 tracking-tight m-0">
-              Fleet Overview
-            </h1>
-            <span
-              style={{
-                background: 'var(--brand-badge-bg, #ecfdf5)',
-                color: 'var(--brand-badge-text, #047857)',
-                borderColor: 'var(--brand-badge-border, #a7f3d0)',
-              }}
-              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-[700] border"
-            >
-              <span style={{ background: 'var(--brand-primary, #10b981)' }} className="w-1.5 h-1.5 rounded-full animate-pulse"></span>
-              Live Telemetry
-            </span>
+      {/* 1. Fleet Overview Card */}
+      <div className="px-4 md:px-6 pt-3 pb-2.5 shrink-0">
+        <div className="w-full bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+          <div className="py-2.5 px-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-md bg-emerald-50 border border-emerald-200/60 flex items-center justify-center text-emerald-600">
+                <Radio size={15} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-[14px] font-[800] text-slate-900 m-0 leading-tight">
+                    Fleet Overview
+                  </h3>
+                  <span
+                    style={{
+                      background: 'var(--brand-badge-bg, #ecfdf5)',
+                      color: 'var(--brand-badge-text, #047857)',
+                      borderColor: 'var(--brand-badge-border, #a7f3d0)',
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-[700] border"
+                  >
+                    <span style={{ background: 'var(--brand-primary, #10b981)' }} className="w-1.5 h-1.5 rounded-full animate-pulse"></span>
+                    Live Telemetry
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 m-0 mt-0.5 font-[500]">
+                  Real-time tracking diagnostics, telemetry status, and organizational metrics
+                </p>
+              </div>
+            </div>
           </div>
-          <p className="text-[11.5px] md:text-[12px] text-slate-500 mt-0.5 font-[500] m-0">
-            Real-time tracking diagnostics, telemetry status, and organizational metrics.
-          </p>
-        </div>
-      </div>
 
-      {/* Fleet Overview Cards (Style A: Compact 8-Card Single Row) */}
-      <div className="px-4 md:px-6 pb-2.5 shrink-0">
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
-          <StatCard
-            label="Users"
-            value={totalUsers}
-            color="#7C3AED"
-            icon={Users}
-            subtext="View Users"
-            onClick={() => navigate('/admin/users')}
-          />
-          <StatCard
-            label="Groups"
-            value={totalGroups}
-            color="#2563EB"
-            icon={Users2}
-            subtext="View Groups"
-            onClick={() => navigate('/admin/groups')}
-          />
-          <StatCard
-            label="Organizations"
-            value={totalOrgsCount}
-            color="#D97706"
-            icon={Building2}
-            subtext="View Organizations"
-            onClick={() => navigate('/admin/organizations')}
-          />
-          <VehicleOverviewCard
-            total={totalVehicles}
-            online={onlineCount}
-            offline={offlineCount}
-            color="#DB2777"
-            onClick={() => navigate('/admin/vehicles')}
-          />
-          <LicenseCard
-            title="Standard"
-            total={standardStats.total}
-            used={standardStats.used}
-            available={standardStats.available}
-            labelUsed={standardStats.labelUsed}
-            labelAvailable={standardStats.labelAvailable}
-            color="#0284C7"
-            onClick={() => navigate('/admin/vehicles?tier=Standard')}
-          />
-          <LicenseCard
-            title="Standard Pro"
-            total={standardProStats.total}
-            used={standardProStats.used}
-            available={standardProStats.available}
-            labelUsed={standardProStats.labelUsed}
-            labelAvailable={standardProStats.labelAvailable}
-            color="#10B981"
-            onClick={() => navigate('/admin/vehicles?tier=Standard%20Pro')}
-          />
-          <LicenseCard
-            title="Advanced"
-            total={advancedStats.total}
-            used={advancedStats.used}
-            available={advancedStats.available}
-            labelUsed={advancedStats.labelUsed}
-            labelAvailable={advancedStats.labelAvailable}
-            color="#F59E0B"
-            onClick={() => navigate('/admin/vehicles?tier=Advanced')}
-          />
-          <LicenseCard
-            title="Premium"
-            total={premiumStats.total}
-            used={premiumStats.used}
-            available={premiumStats.available}
-            labelUsed={premiumStats.labelUsed}
-            labelAvailable={premiumStats.labelAvailable}
-            color="#8B5CF6"
-            onClick={() => navigate('/admin/vehicles?tier=Premium')}
-          />
+          <div className="p-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+              <StatCard
+                label="Users"
+                value={totalUsers}
+                color="#7C3AED"
+                icon={Users}
+                subtext="View Users"
+                onClick={() => navigate('/admin/users')}
+              />
+              <StatCard
+                label="Groups"
+                value={totalGroups}
+                color="#2563EB"
+                icon={Users2}
+                subtext="View Groups"
+                onClick={() => navigate('/admin/groups')}
+              />
+              <StatCard
+                label="Organizations"
+                value={totalOrgsCount}
+                color="#D97706"
+                icon={Building2}
+                subtext="View Organizations"
+                onClick={() => navigate('/admin/organizations')}
+              />
+              <VehicleOverviewCard
+                total={totalVehicles}
+                online={onlineCount}
+                offline={offlineCount}
+                color="#DB2777"
+                onClick={() => navigate('/admin/vehicles')}
+              />
+              <LicenseCard
+                title="Standard"
+                total={standardStats.total}
+                used={standardStats.used}
+                available={standardStats.available}
+                labelUsed={standardStats.labelUsed}
+                labelAvailable={standardStats.labelAvailable}
+                color="#0284C7"
+                onClick={() => navigate('/admin/vehicles?tier=Standard')}
+              />
+              <LicenseCard
+                title="Standard Pro"
+                total={standardProStats.total}
+                used={standardProStats.used}
+                available={standardProStats.available}
+                labelUsed={standardProStats.labelUsed}
+                labelAvailable={standardProStats.labelAvailable}
+                color="#10B981"
+                onClick={() => navigate('/admin/vehicles?tier=Standard%20Pro')}
+              />
+              <LicenseCard
+                title="Advanced"
+                total={advancedStats.total}
+                used={advancedStats.used}
+                available={advancedStats.available}
+                labelUsed={advancedStats.labelUsed}
+                labelAvailable={advancedStats.labelAvailable}
+                color="#F59E0B"
+                onClick={() => navigate('/admin/vehicles?tier=Advanced')}
+              />
+              <LicenseCard
+                title="Premium"
+                total={premiumStats.total}
+                used={premiumStats.used}
+                available={premiumStats.available}
+                labelUsed={premiumStats.labelUsed}
+                labelAvailable={premiumStats.labelAvailable}
+                color="#8B5CF6"
+                onClick={() => navigate('/admin/vehicles?tier=Premium')}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -536,8 +544,8 @@ const DashboardPage = ({ setAppVehicles }) => {
         </div>
       </div>
 
-      {/* Main Layout: Expiring Licenses */}
-      <div className="px-4 md:px-6 pb-4 flex-1 min-h-[220px] flex">
+      {/* 2. Expiring Licenses Card */}
+      <div className="px-4 md:px-6 pb-2.5 shrink-0">
         <div className="w-full bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
           <div className="py-2.5 px-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div className="flex items-center gap-2">
@@ -561,7 +569,7 @@ const DashboardPage = ({ setAppVehicles }) => {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto overflow-x-auto w-full">
+          <div className="overflow-y-auto overflow-x-auto w-full max-h-[360px]">
             {expiringVehicles.length > 0 ? (
               <table className="w-full min-w-[680px] text-left border-collapse">
                 <thead className="sticky top-0 z-10" style={{ background: 'var(--brand-header, #1e1b4b)' }}>
@@ -620,7 +628,7 @@ const DashboardPage = ({ setAppVehicles }) => {
                 </tbody>
               </table>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full min-h-[220px] gap-2.5 opacity-60">
+              <div className="flex flex-col items-center justify-center py-10 gap-2.5 opacity-60">
                 <AlertTriangle size={36} color="#94A3B8" />
                 <p className="text-[14px] font-[500] text-slate-500 m-0">All vehicle licenses are active and up to date!</p>
               </div>
@@ -628,8 +636,11 @@ const DashboardPage = ({ setAppVehicles }) => {
           </div>
         </div>
       </div>
-      {/* Manual Fuel Monitoring & Mileage Prediction Section */}
-      <ManualFuelDashboardSection />
+
+      {/* 3. Manual Fuel Monitoring & Mileage Prediction Card */}
+      <div className="px-4 md:px-6 pb-6 shrink-0">
+        <ManualFuelDashboardSection />
+      </div>
     </div>
   );
 };

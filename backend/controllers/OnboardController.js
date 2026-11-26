@@ -160,6 +160,10 @@ const OnboardController = {
         if (!/^\d{15}$/.test(imei)) {
           throw new Error(`Row ${i + 1}: Device Id (IMEI) must be exactly 15 numeric digits compulsory. Received ${imei.length} digits ("${imei}").`);
         }
+        const devType = String(d.deviceType || '').trim();
+        if (!devType) {
+          throw new Error(`Row ${i + 1}: Device Type is required. Please select a valid device type.`);
+        }
         const plate = String(d.registrationNo || d.vehicleId || '').trim().toUpperCase();
         const iccid = String(d.iccid || '').trim();
 
@@ -307,7 +311,7 @@ const OnboardController = {
         );
 
         // Also create a vehicle in the vehicles table
-        const effectiveDeviceModel = deviceType || 'VOLTY';
+        const effectiveDeviceModel = deviceType || 'GPS Tracker';
         const metadata = {
           vehicleId: vehicleId || '',
           licenceNo: registrationNo || '',

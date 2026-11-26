@@ -6,14 +6,29 @@ const { maskPhone } = require('../utils/phone');
 const WhatsAppService = require('./whatsappService');
 
 // Configure SMTP transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.mailtrap.io',
-  port: parseInt(process.env.SMTP_PORT) || 2525,
-  auth: {
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || ''
+let cachedTransporter = null;
+function getTransporter() {
+  const isGmail = process.env.SMTP_SERVICE === 'gmail' || (process.env.SMTP_HOST && process.env.SMTP_HOST.includes('gmail'));
+  const user = process.env.SMTP_USER || '';
+  const pass = process.env.SMTP_PASS || '';
+
+  if (isGmail) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass }
+    });
   }
-});
+
+  const smtpPort = parseInt(process.env.SMTP_PORT) || 587;
+  const isSecure = smtpPort === 465 || process.env.SMTP_SECURE === 'true';
+
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: smtpPort,
+    secure: isSecure,
+    auth: { user, pass }
+  });
+}
 
 const NotificationService = {
   /**
@@ -25,8 +40,9 @@ const NotificationService = {
       return false;
     }
 
+    const senderEmail = process.env.SMTP_USER || 'alerts@fueltracks.in';
     const mailOptions = {
-      from: process.env.SMTP_FROM || '"FuelTracks Alerts" <alerts@fueltracks.com>',
+      from: process.env.SMTP_FROM || `"FuelTracks Fleet Alerts" <${senderEmail}>`,
       to: toEmail,
       subject: subject,
       text: textContent,
@@ -35,17 +51,177 @@ const NotificationService = {
 
     try {
       if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-        console.log(`[MOCK-EMAIL] Sent alert email to ${toEmail}: "${subject}"`);
+        console.log(`[MOCK-EMAIL] Sent alert email to ${toEmail}: "${subject}" (Set SMTP_USER and SMTP_PASS in .env to send real emails)`);
         return true;
       }
 
+      const transporter = getTransporter();
       const info = await transporter.sendMail(mailOptions);
-      console.log(`[NOTIFY-EMAIL] Email sent to ${toEmail}: ${info.messageId}`);
+      console.log(`[NOTIFY-EMAIL] Email successfully sent to ${toEmail}: ${info.messageId}`);
       return true;
     } catch (err) {
       console.error('[NOTIFY-EMAIL] Failed to send email:', err.message);
       return false;
     }
+  },
+
+  /**
+   * Generate Modern Branded HTML Email for Fleet Alerts
+   */
+  generateAlertEmailHtml({ orgName, alertType, alertText, vehicleName, plate, imei, address, deviceTime, mapUrl }) {
+    const norm = String(alertType || '').toLowerCase();
+    const isCritical = norm.includes('theft') || norm.includes('cut') || norm.includes('drop') || norm.includes('sos') || norm.includes('tamper');
+    const isRefill = norm.includes('refill') || norm.includes('fill');
+    const isWarning = norm.includes('overspeed') || norm.includes('idle') || norm.includes('offline');
+
+    let badgeColor = '#2563eb';
+    let badgeBg = '#eff6ff';
+    let badgeBorder = '#bfdbfe';
+    let headerBorder = '#3b82f6';
+    let badgeLabel = 'FLEET ALERT';
+
+    if (isCritical) {
+      badgeColor = '#dc2626';
+      badgeBg = '#fef2f2';
+      badgeBorder = '#fecaca';
+      headerBorder = '#ef4444';
+      badgeLabel = 'CRITICAL ALERT';
+    } else if (isRefill) {
+      badgeColor = '#16a34a';
+      badgeBg = '#f0fdf4';
+      badgeBorder = '#bbf7d0';
+      headerBorder = '#22c55e';
+      badgeLabel = 'REFILL DETECTED';
+    } else if (isWarning) {
+      badgeColor = '#ea580c';
+      badgeBg = '#fff7ed';
+      badgeBorder = '#fed7aa';
+      headerBorder = '#f97316';
+      badgeLabel = 'WARNING';
+    }
+
+    const formattedTime = new Date(deviceTime || Date.now()).toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+
+    const googleMapsLink = mapUrl || (address && address.includes(',') && !address.includes('Pending') ? `https://maps.google.com/?q=${encodeURIComponent(address)}` : 'https://app.fueltracks.in');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; padding: 30px 15px;">
+          <tr>
+            <td align="center">
+              <table width="100%" max-width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border-top: 5px solid ${headerBorder};">
+                
+                <!-- Header -->
+                <tr>
+                  <td style="padding: 24px 28px 16px 28px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td>
+                          <div style="font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px;">
+                            FUEL<span style="color: #f97316;">TRACKS</span>
+                          </div>
+                          <div style="font-size: 11px; font-weight: 600; color: #64748b; letter-spacing: 0.5px; text-transform: uppercase;">
+                            Fleet Telematics Intelligence
+                          </div>
+                        </td>
+                        <td align="right">
+                          <span style="display: inline-block; padding: 5px 12px; font-size: 11px; font-weight: 700; color: ${badgeColor}; background: ${badgeBg}; border: 1px solid ${badgeBorder}; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+                            ${badgeLabel}
+                          </span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Alert Title -->
+                <tr>
+                  <td style="padding: 0 28px 16px 28px;">
+                    <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.3;">
+                      ${String(alertType).replace(/_/g, ' ').toUpperCase()}
+                    </h1>
+                    <p style="margin: 6px 0 0 0; font-size: 13px; color: #475569;">
+                      Organization: <strong style="color: #0f172a;">${orgName || 'Fleet Account'}</strong>
+                    </p>
+                  </td>
+                </tr>
+
+                <!-- Vehicle Card -->
+                <tr>
+                  <td style="padding: 0 28px 20px 28px;">
+                    <div style="background: #f1f5f9; border-radius: 10px; padding: 16px; border: 1px solid #e2e8f0;">
+                      <table width="100%" cellpadding="4" cellspacing="0" style="font-size: 13px;">
+                        <tr>
+                          <td style="color: #64748b; width: 35%;">Vehicle Plate:</td>
+                          <td style="color: #0f172a; font-weight: 700; font-size: 14px;">${plate || 'N/A'}</td>
+                        </tr>
+                        ${vehicleName && vehicleName !== plate ? `
+                        <tr>
+                          <td style="color: #64748b;">Vehicle Name:</td>
+                          <td style="color: #0f172a; font-weight: 600;">${vehicleName}</td>
+                        </tr>` : ''}
+                        <tr>
+                          <td style="color: #64748b;">Event Details:</td>
+                          <td style="color: ${badgeColor}; font-weight: 700;">${alertText || 'Alert condition detected'}</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #64748b;">Location:</td>
+                          <td style="color: #0f172a;">${address || 'Location Coordinates Pending'}</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #64748b;">Recorded Time:</td>
+                          <td style="color: #0f172a;">${formattedTime} IST</td>
+                        </tr>
+                        ${imei ? `
+                        <tr>
+                          <td style="color: #94a3b8; font-size: 11px;">Device IMEI:</td>
+                          <td style="color: #94a3b8; font-size: 11px;">${imei}</td>
+                        </tr>` : ''}
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Action Button -->
+                <tr>
+                  <td align="center" style="padding: 0 28px 24px 28px;">
+                    <a href="${googleMapsLink}" target="_blank" style="display: inline-block; padding: 11px 24px; background: #0f172a; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 600; border-radius: 8px; box-shadow: 0 2px 6px rgba(15,23,42,0.15);">
+                      📍 View Live Location on Map
+                    </a>
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 28px; text-align: center;">
+                    <p style="margin: 0; font-size: 11px; color: #94a3b8; line-height: 1.5;">
+                      This is an automated fleet notification dispatched according to your organization's alert settings.<br/>
+                      © ${new Date().getFullYear()} FuelTracks Telematics. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
   },
 
   /**
@@ -453,9 +629,6 @@ const NotificationService = {
     const telegramEnabled = this.isChannelEnabled(alertMatrix, alertType, 'telegram');
     const whatsappEnabled = this.isChannelEnabled(alertMatrix, alertType, 'whatsapp');
 
-    const emailSubject = `[Alert] ${String(alertType).toUpperCase()} - ${vehicleInfo.name} (${vehicleInfo.plate})`;
-    const plainText = `Alert: ${String(alertType).toUpperCase()}\nVehicle: ${vehicleInfo.name} (${vehicleInfo.plate})\nIMEI: ${vehicleInfo.imei}\nLocation: ${vehicleInfo.address || 'Pending'}\nDetails: ${alertText}\nTime: ${new Date().toLocaleString()}`;
-
     const results = {
       email: false,
       sms: false,
@@ -466,22 +639,38 @@ const NotificationService = {
     // 1. Email Channel
     const recipientEmail = org.email || org.primary_user_email || s.sales_email;
     if (emailEnabled && recipientEmail && recipientEmail !== 'no') {
-      const htmlBody = `
-        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
-          <h2 style="color: #f97316; margin-top: 0;">⚠️ FuelTracks Alert: ${String(alertType).toUpperCase()}</h2>
-          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 16px 0;" />
-          <p><strong>Organization:</strong> ${org.name}</p>
-          <p><strong>Vehicle Name:</strong> ${vehicleInfo.name}</p>
-          <p><strong>Plate Number:</strong> ${vehicleInfo.plate}</p>
-          <p><strong>Device IMEI:</strong> ${vehicleInfo.imei}</p>
-          <p><strong>Location:</strong> ${vehicleInfo.address || 'Location Pending'}</p>
-          <p><strong>Event Details:</strong> ${alertText}</p>
-          <p><strong>Timestamp:</strong> ${new Date().toLocaleString()}</p>
-          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 16px 0;" />
-          <p style="font-size: 11px; color: #94a3b8;">Automated alert generated by FuelTracks Fleet Tracking Engine.</p>
-        </div>
-      `;
-      results.email = await this.sendEmail(recipientEmail, emailSubject, plainText, htmlBody);
+      const normType = String(alertType || '').toLowerCase().trim();
+      const isCritical = normType.includes('theft') || normType.includes('drop') || normType.includes('power') || normType.includes('cut') || normType.includes('overspeed') || normType.includes('battery');
+
+      let canSendEmail = true;
+      if (isCritical && redis) {
+        const vehicleKey = vehicleInfo.plate || vehicleInfo.imei || 'vehicle';
+        const cooldownKey = `email:cooldown:${normType}:${vehicleKey}`;
+        try {
+          const res = await redis.set(cooldownKey, '1', 'EX', 600, 'NX');
+          if (!res) {
+            console.log(`[EMAIL-ALERTS] Cooldown active (10m): skipping duplicate ${normType} email for ${vehicleKey}`);
+            canSendEmail = false;
+          }
+        } catch (_) {}
+      }
+
+      if (canSendEmail) {
+        const emailSubject = `🚨 [FuelTracks Alert] ${String(alertType).replace(/_/g, ' ').toUpperCase()} - ${vehicleInfo.plate || vehicleInfo.name}`;
+        const plainText = `Alert: ${String(alertType).toUpperCase()}\nVehicle: ${vehicleInfo.name} (${vehicleInfo.plate})\nIMEI: ${vehicleInfo.imei}\nLocation: ${vehicleInfo.address || 'Pending'}\nDetails: ${alertText}\nTime: ${new Date().toLocaleString()}`;
+        const htmlBody = this.generateAlertEmailHtml({
+          orgName: org.name,
+          alertType: alertType,
+          alertText: alertText,
+          vehicleName: vehicleInfo.name,
+          plate: vehicleInfo.plate,
+          imei: vehicleInfo.imei,
+          address: vehicleInfo.address,
+          deviceTime: vehicleInfo.deviceTime || new Date()
+        });
+
+        results.email = await this.sendEmail(recipientEmail, emailSubject, plainText, htmlBody);
+      }
     }
 
     // 2. SMS Channel

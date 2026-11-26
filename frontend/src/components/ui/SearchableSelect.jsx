@@ -20,7 +20,7 @@ const SearchableSelect = ({
   const containerRef = useRef(null);
   const menuRef = useRef(null);
   const searchInputRef = useRef(null);
-  const [portalPosition, setPortalPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [portalPosition, setPortalPosition] = useState({ top: null, bottom: null, left: 0, width: 0 });
 
   // Close when clicking outside
   useEffect(() => {
@@ -42,12 +42,21 @@ const SearchableSelect = ({
         if (!containerRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
         const spaceBelow = window.innerHeight - rect.bottom;
-        const openUpward = spaceBelow < 280 && rect.top > 280;
+        // Only open upward if space below is too small (< 150px) and there's more space above
+        const openUpward = spaceBelow < 150 && rect.top > spaceBelow;
+
+        const width = Math.max(rect.width, 195);
+        let left = rect.left;
+        // Prevent overflowing the right edge of viewport
+        if (left + width > window.innerWidth - 10) {
+          left = Math.max(10, window.innerWidth - width - 10);
+        }
 
         setPortalPosition({
-          top: openUpward ? rect.top - 280 : rect.bottom + 4,
-          left: rect.left,
-          width: Math.max(rect.width, 220)
+          top: openUpward ? null : rect.bottom + 4,
+          bottom: openUpward ? (window.innerHeight - rect.top) + 4 : null,
+          left,
+          width
         });
       };
 
@@ -158,15 +167,16 @@ const SearchableSelect = ({
             ref={menuRef}
             style={{
               position: usePortal ? 'fixed' : 'absolute',
-              top: usePortal ? portalPosition.top : 'calc(100% + 4px)',
-              left: usePortal ? portalPosition.left : 0,
+              top: usePortal ? (portalPosition.top !== null ? `${portalPosition.top}px` : undefined) : 'calc(100% + 4px)',
+              bottom: usePortal ? (portalPosition.bottom !== null ? `${portalPosition.bottom}px` : undefined) : undefined,
+              left: usePortal ? `${portalPosition.left}px` : 0,
               right: usePortal ? undefined : 0,
-              width: usePortal ? portalPosition.width : undefined,
-              minWidth: '220px',
+              width: usePortal ? `${portalPosition.width}px` : undefined,
+              minWidth: '195px',
               zIndex: 99999,
               background: '#FFFFFF',
               border: '1px solid #E2E8F0',
-              borderRadius: '10px',
+              borderRadius: '8px',
               boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
               overflow: 'hidden'
             }}
@@ -174,7 +184,7 @@ const SearchableSelect = ({
             {/* Search bar inside dropdown */}
             <div
               style={{
-                padding: '8px',
+                padding: '5px',
                 borderBottom: '1px solid #F1F5F9',
                 background: '#F8FAFC'
               }}
@@ -183,14 +193,14 @@ const SearchableSelect = ({
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  padding: '6px 10px',
+                  gap: '5px',
+                  padding: '3px 7px',
                   background: '#FFFFFF',
-                  borderRadius: '6px',
+                  borderRadius: '5px',
                   border: '1px solid #CBD5E1'
                 }}
               >
-                <Search size={14} color="#94A3B8" />
+                <Search size={12} color="#94A3B8" />
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -200,7 +210,7 @@ const SearchableSelect = ({
                   style={{
                     border: 'none',
                     outline: 'none',
-                    fontSize: '13px',
+                    fontSize: '11.5px',
                     width: '100%',
                     color: '#111827',
                     background: 'transparent'
@@ -218,7 +228,7 @@ const SearchableSelect = ({
                       color: '#94A3B8'
                     }}
                   >
-                    <X size={13} />
+                    <X size={11} />
                   </button>
                 )}
               </div>
@@ -227,7 +237,7 @@ const SearchableSelect = ({
             {/* Options list */}
             <div
               style={{
-                maxHeight: '220px',
+                maxHeight: '130px',
                 overflowY: 'auto'
               }}
             >
@@ -235,8 +245,8 @@ const SearchableSelect = ({
               <div
                 onClick={() => handleSelect('')}
                 style={{
-                  padding: '8px 14px',
-                  fontSize: '13px',
+                  padding: '5px 10px',
+                  fontSize: '11.5px',
                   color: '#64748B',
                   cursor: 'pointer',
                   borderBottom: '1px dashed #F1F5F9',
@@ -249,7 +259,7 @@ const SearchableSelect = ({
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
                 <span>{placeholder}</span>
-                {!value && <Check size={14} color="#f97316" />}
+                {!value && <Check size={12} color="#f97316" />}
               </div>
 
               {filteredOptions.length > 0 ? (
@@ -260,8 +270,8 @@ const SearchableSelect = ({
                       key={opt.value}
                       onClick={() => handleSelect(opt.value)}
                       style={{
-                        padding: '9px 14px',
-                        fontSize: '13px',
+                        padding: '5px 10px',
+                        fontSize: '11.5px',
                         color: isSelected ? '#EA580C' : '#475569',
                         background: isSelected ? '#FFF7ED' : 'transparent',
                         fontWeight: isSelected ? 600 : 400,

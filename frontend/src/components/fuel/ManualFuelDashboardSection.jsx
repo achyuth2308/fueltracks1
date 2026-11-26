@@ -60,6 +60,58 @@ const getStatusBadge = (status) => {
   }
 };
 
+/* Modern Fuel Stat Card - Style A (Top Accent Line matching Fleet Overview) */
+const FuelStatCard = ({ label, value, unit, color, icon: Icon, subtext }) => (
+  <div
+    className="bg-white rounded-xl p-3 transition-all duration-200 flex flex-col justify-between hover:-translate-y-0.5"
+    style={{
+      border: '1px solid #E2E8F0',
+      borderTop: `3.5px solid ${color}`,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    }}
+  >
+    <div className="flex items-center justify-between gap-1.5">
+      <span style={{ fontSize: '11px', fontWeight: 800, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        {label}
+      </span>
+      <div
+        style={{
+          width: '28px',
+          height: '28px',
+          borderRadius: '7px',
+          background: `${color}14`,
+          color: color,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <Icon size={15} strokeWidth={2.4} />
+      </div>
+    </div>
+
+    <div className="my-1.5 flex items-baseline gap-1.5">
+      <div style={{ fontSize: '24px', fontWeight: 900, color: '#000000', lineHeight: 1 }}>
+        {value}
+      </div>
+      {unit && (
+        <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#64748B' }}>
+          {unit}
+        </span>
+      )}
+    </div>
+
+    {subtext && (
+      <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+        <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#475569' }}>
+          {subtext}
+        </span>
+      </div>
+    )}
+  </div>
+);
+
 const ManualFuelDashboardSection = () => {
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -129,147 +181,139 @@ const ManualFuelDashboardSection = () => {
   }, [vehicles]);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4 my-6">
-      {/* Top Banner / Disclaimer */}
-      <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-3.5 flex items-start gap-3">
-        <div className="p-1.5 bg-amber-500/10 text-amber-700 rounded-lg shrink-0 mt-0.5">
-          <Fuel size={18} />
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h4 className="text-xs font-black uppercase tracking-wider text-amber-900">
-              Manual Fuel Monitoring & Mileage Prediction
-            </h4>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200/60 text-amber-900">
-              ESTIMATED VALUES
-            </span>
+    <div className="w-full bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+      {/* Card Header matching Fleet Overview & Expiring Vehicles */}
+      <div className="py-2.5 px-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-slate-50/50">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-amber-50 border border-amber-200/60 flex items-center justify-center text-amber-600">
+            <Fuel size={15} />
           </div>
-          <p className="text-xs text-amber-800/90 mt-0.5 font-medium leading-relaxed">
-            Note: Fuel values are estimated based on driver manual entries and GPS distance calculation. Physical fuel sensors are not installed.
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            setEntryModalVehicle(null);
-            setIsEntryOpen(true);
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 shadow-sm transition-all shrink-0 cursor-pointer"
-        >
-          <Fuel size={13} />
-          <span>+ Add Fuel Entry</span>
-        </button>
-        <button
-          onClick={fetchOverview}
-          disabled={loading}
-          className="p-1.5 text-amber-700 hover:text-amber-900 rounded-lg hover:bg-amber-100/60 transition-colors shrink-0"
-          title="Refresh fuel stats"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
-      </div>
-
-      {/* Aggregate KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl">
-          <span className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">
-            Total Estimated Fuel
-          </span>
-          <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-2xl font-black text-slate-900">{stats.totalFuel}</span>
-            <span className="text-xs font-bold text-slate-500">Litres</span>
-          </div>
-        </div>
-
-        <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl">
-          <span className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">
-            GPS Distance Tracked
-          </span>
-          <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-2xl font-black text-slate-900">{stats.totalDist.toLocaleString()}</span>
-            <span className="text-xs font-bold text-slate-500">KM</span>
-          </div>
-        </div>
-
-        <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl">
-          <span className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">
-            Estimated Consumption
-          </span>
-          <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-2xl font-black text-slate-900">{stats.totalConsumed}</span>
-            <span className="text-xs font-bold text-slate-500">Litres</span>
-          </div>
-        </div>
-
-        <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl">
-          <span className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">
-            Fleet Fuel Status
-          </span>
-          <div className="flex items-center gap-2 mt-1.5 text-xs font-bold">
-            <span className="text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
-              {stats.countHealthy} Normal
-            </span>
-            {stats.countLow > 0 && (
-              <span className="text-amber-700 bg-amber-100/70 px-2 py-0.5 rounded-md">
-                {stats.countLow} Low
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-[14px] font-[800] text-slate-900 m-0 leading-tight">
+                Manual Fuel Monitoring & Mileage Prediction
+              </h3>
+              <span className="px-1.5 py-0.5 rounded text-[9.5px] font-[700] bg-amber-100/80 text-amber-800 border border-amber-200/70">
+                ESTIMATED VALUES
               </span>
-            )}
-            {stats.countCritical > 0 && (
-              <span className="text-rose-700 bg-rose-100/70 px-2 py-0.5 rounded-md">
-                {stats.countCritical} Critical
-              </span>
-            )}
+            </div>
+            <p className="text-[11px] text-slate-500 m-0 mt-0.5 font-[500]">
+              Note: Fuel values are estimated based on driver manual entries and GPS distance calculation (physical fuel sensors not installed)
+            </p>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => {
+              setEntryModalVehicle(null);
+              setIsEntryOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 shadow-sm transition-all shrink-0 cursor-pointer"
+          >
+            <Fuel size={13} />
+            <span>+ Add Fuel Entry</span>
+          </button>
+          <button
+            onClick={fetchOverview}
+            disabled={loading}
+            className="p-1.5 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-colors shrink-0 cursor-pointer"
+            title="Refresh fuel stats"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          </button>
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-        <div className="relative w-full sm:w-64">
-          <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search vehicle..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+      <div className="p-3.5 space-y-3.5">
+        {/* Aggregate KPI Cards - matching Style A Top Accent StatCard */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <FuelStatCard
+            label="Total Estimated Fuel"
+            value={stats.totalFuel}
+            unit="Litres"
+            color="#EA580C"
+            icon={Fuel}
+            subtext="Remaining in fleet tanks"
+          />
+          <FuelStatCard
+            label="GPS Distance Tracked"
+            value={stats.totalDist.toLocaleString()}
+            unit="KM"
+            color="#2563EB"
+            icon={Navigation}
+            subtext="Total fleet distance tracked"
+          />
+          <FuelStatCard
+            label="Estimated Consumption"
+            value={stats.totalConsumed}
+            unit="Litres"
+            color="#7C3AED"
+            icon={Droplets}
+            subtext="Estimated fuel consumed"
+          />
+          <FuelStatCard
+            label="Fleet Fuel Status"
+            value={`${stats.countHealthy} Normal`}
+            unit=""
+            color={stats.countCritical > 0 ? '#E11D48' : stats.countLow > 0 ? '#D97706' : '#059669'}
+            icon={Gauge}
+            subtext={
+              stats.countLow > 0 || stats.countCritical > 0
+                ? `${stats.countLow} Low Fuel • ${stats.countCritical} Critical`
+                : 'All monitored vehicles healthy'
+            }
           />
         </div>
 
-        {/* Status Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
-          {['ALL', 'Healthy', 'Normal', 'Low Fuel', 'Critical Fuel', 'No Fuel Data'].map(st => (
-            <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all whitespace-nowrap ${
-                statusFilter === st
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              {st}
-            </button>
-          ))}
-        </div>
-      </div>
+        {/* Filter & Search Bar */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+          <div className="relative w-full sm:w-64">
+            <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search vehicle..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
 
-      {/* Vehicle-Wise Fuel Table */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto max-h-[460px]">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-50/90 sticky top-0 z-10 border-b border-slate-200 text-slate-700 font-extrabold uppercase tracking-wider text-[10px]">
-              <tr>
-                <th className="py-3 px-3">Vehicle</th>
-                <th className="py-3 px-3">Fuel Status</th>
-                <th className="py-3 px-3 text-right">Estimated Fuel</th>
-                <th className="py-3 px-3 text-right">Estimated Consumption</th>
-                <th className="py-3 px-3 text-right">Average Mileage</th>
-                <th className="py-3 px-3 text-right">Estimated Range</th>
-                <th className="py-3 px-3 text-right">Distance Since Entry</th>
-                <th className="py-3 px-3">Last Refill / Entry</th>
-                <th className="py-3 px-3 text-center">Actions</th>
-              </tr>
-            </thead>
+          {/* Status Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
+            {['ALL', 'Healthy', 'Normal', 'Low Fuel', 'Critical Fuel', 'No Fuel Data'].map(st => (
+              <button
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all whitespace-nowrap cursor-pointer ${
+                  statusFilter === st
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {st}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Vehicle-Wise Fuel Table */}
+        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+          <div className="overflow-x-auto max-h-[460px]">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="sticky top-0 z-10" style={{ background: 'var(--brand-header, #1e1b4b)' }}>
+                <tr className="text-[11px] font-[800] uppercase tracking-wider" style={{ color: '#ffffff' }}>
+                  <th className="py-2.5 px-3 border-r border-white/10" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Vehicle</th>
+                  <th className="py-2.5 px-3 border-r border-white/10" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Fuel Status</th>
+                  <th className="py-2.5 px-3 border-r border-white/10 text-right" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Estimated Fuel</th>
+                  <th className="py-2.5 px-3 border-r border-white/10 text-right" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Estimated Consumption</th>
+                  <th className="py-2.5 px-3 border-r border-white/10 text-right" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Average Mileage</th>
+                  <th className="py-2.5 px-3 border-r border-white/10 text-right" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Estimated Range</th>
+                  <th className="py-2.5 px-3 border-r border-white/10 text-right" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Distance Since Entry</th>
+                  <th className="py-2.5 px-3 border-r border-white/10" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Last Refill / Entry</th>
+                  <th className="py-2.5 px-3 text-center" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Actions</th>
+                </tr>
+              </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {filteredVehicles.length === 0 ? (
                 <tr>
@@ -413,6 +457,7 @@ const ManualFuelDashboardSection = () => {
           </table>
         </div>
       </div>
+    </div>
 
       {/* Modals */}
       {configModalVehicle && (

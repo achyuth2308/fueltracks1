@@ -349,10 +349,24 @@ const VEHICLE_MODELS = [
   'Other'
 ];
 
-const DEVICE_MODELS = [
-  'VOLTY', 'AIS140', 'AIS140 V2', 'GT06N (9964)', 'BSTPL',
-  'BSTPL-17IS', 'CONCOX', 'V5 4G', 'FMB 920', 'PT06', 'EC08', 'PN02', 'VOLTYFUEL', 'APMK', 'APM'
+// Device types in ascending order based on port numbers (5000 -> 5012)
+const DEVICE_TYPE_OPTIONS = [
+  { value: 'BSTPL', label: 'BSTPL - BSTPL-17 (5000)' },
+  { value: 'AIS140', label: 'TrackNow - AIS140 (5001)' },
+  { value: 'CONCOX', label: 'CONCOX - V5/GT800 (5002)' },
+  { value: 'AIS140 V2', label: 'VAMO - AIS140 V2 (5003)' },
+  { value: 'VOLTY', label: 'VOLTY - AIS140 (5004)' },
+  { value: 'FMB 920', label: 'Teltonika - FMB 920 (5005)' },
+  { value: 'PT06', label: 'PT06 - Binary (5006)' },
+  { value: 'EC08', label: 'EC08 - GT06 (5007)' },
+  { value: 'PN02', label: 'PN02 - Binary (5008)' },
+  { value: 'V5 4G', label: 'CONCOX - V5 4G (5009)' },
+  { value: 'BSTPL-17IS', label: 'BSTPL - BSTPL-17IS (5010)' },
+  { value: 'VOLTYFUEL', label: 'TranSync - NAV 140 (5011)' },
+  { value: 'APMK', label: 'APM - APM (5012)' },
 ];
+
+const DEVICE_MODELS = DEVICE_TYPE_OPTIONS;
 
 const resolveDeviceModel = (raw) => {
   if (!raw) return '';
@@ -368,7 +382,7 @@ const resolveDeviceModel = (raw) => {
   if (upper.includes('FMB') || upper.includes('TELTONIKA') || upper.includes('5005')) return 'FMB 920';
   if (upper.includes('PT06') || upper.includes('5006')) return 'PT06';
   if (upper.includes('PN02') || upper.includes('5008')) return 'PN02';
-  if (upper.includes('EC08') || upper.includes('5007') || upper.includes('GT06')) return 'GT06N (9964)';
+  if (upper.includes('EC08') || upper.includes('5007') || upper.includes('GT06')) return 'EC08';
   if (upper.includes('APMK') || upper.includes('APM') || upper.includes('5012')) return 'APMK';
   return String(raw).trim();
 };
@@ -1421,8 +1435,8 @@ const EditVehiclePage = () => {
               }));
             }}
             options={
-              (form.deviceVersion || form.metadata.deviceModel) && !DEVICE_MODELS.includes(form.deviceVersion || form.metadata.deviceModel)
-                ? [form.deviceVersion || form.metadata.deviceModel, ...DEVICE_MODELS]
+              (form.deviceVersion || form.metadata.deviceModel) && !DEVICE_MODELS.some(opt => opt.value === (form.deviceVersion || form.metadata.deviceModel))
+                ? [{ value: (form.deviceVersion || form.metadata.deviceModel), label: (form.deviceVersion || form.metadata.deviceModel) }, ...DEVICE_MODELS]
                 : DEVICE_MODELS
             }
             focused={focusedField === 'dModel'}
@@ -1890,24 +1904,6 @@ const EditVehiclePage = () => {
             placeholder="Driver Mobile No"
             focused={focusedField === 'dPhone'}
             onFocus={() => setFocusedField('dPhone')}
-            onBlur={() => setFocusedField(null)}
-          />
-          <InputField
-            label="Registered Owner Name (from RC)"
-            value={form.metadata.ownerName}
-            onChange={e => updateMeta('ownerName', e.target.value)}
-            placeholder="Registered Owner Name"
-            focused={focusedField === 'ownerName'}
-            onFocus={() => setFocusedField('ownerName')}
-            onBlur={() => setFocusedField(null)}
-          />
-          <InputField
-            label="Registered Owner Address (from RC)"
-            value={form.metadata.ownerAddress}
-            onChange={e => updateMeta('ownerAddress', e.target.value)}
-            placeholder="Registered Address on RC"
-            focused={focusedField === 'ownerAddr'}
-            onFocus={() => setFocusedField('ownerAddr')}
             onBlur={() => setFocusedField(null)}
           />
         </div>
