@@ -409,14 +409,14 @@ const ConsolidatedReportPage = () => {
               onClick={handleSetYesterday}
               style={{
                 padding: '5px 14px',
-                borderRadius: '999px',
-                border: 'none',
-                background: '#064E3B',
-                color: '#FFFFFF',
-                fontSize: '11.5px',
-                fontWeight: 700,
+                borderRadius: '4px',
+                border: '1px solid #CBD5E1',
+                background: '#FFFFFF',
+                color: '#1E293B',
+                fontSize: '12px',
+                fontWeight: 600,
                 cursor: 'pointer',
-                boxShadow: '0 2px 5px rgba(6, 78, 59, 0.25)'
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
               }}
               title="Set date range to Yesterday full 24h"
             >
@@ -461,18 +461,18 @@ const ConsolidatedReportPage = () => {
             onClick={() => handleFetchReport()}
             disabled={loading}
             style={{
-              padding: '6px 18px',
-              borderRadius: '999px',
-              border: 'none',
-              background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-              color: '#FFFFFF',
-              fontSize: '13px',
-              fontWeight: 700,
+              padding: '6px 16px',
+              borderRadius: '4px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              color: '#1E293B',
+              fontSize: '12px',
+              fontWeight: 600,
               cursor: loading ? 'wait' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)'
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
             }}
           >
             {loading ? <Loader2 size={13} className="animate-spin" /> : null}
@@ -489,18 +489,19 @@ const ConsolidatedReportPage = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px',
-                padding: '6px 12px',
+                padding: '5px 12px',
                 borderRadius: '4px',
-                border: 'none',
-                background: data.length === 0 ? '#E2E8F0' : '#10B981',
-                color: '#FFFFFF',
+                border: '1px solid #CBD5E1',
+                background: '#FFFFFF',
+                color: data.length === 0 ? '#94A3B8' : '#15803D',
                 fontSize: '12px',
-                fontWeight: 700,
-                cursor: data.length === 0 ? 'not-allowed' : 'pointer'
+                fontWeight: 600,
+                cursor: data.length === 0 ? 'not-allowed' : 'pointer',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
               }}
               title="Export to Excel"
             >
-              <FileSpreadsheet size={14} />
+              <FileSpreadsheet size={14} color={data.length === 0 ? '#94A3B8' : '#15803D'} />
               Excel
             </button>
             <button
@@ -511,18 +512,19 @@ const ConsolidatedReportPage = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px',
-                padding: '6px 12px',
+                padding: '5px 12px',
                 borderRadius: '4px',
-                border: 'none',
-                background: data.length === 0 ? '#E2E8F0' : '#EF4444',
-                color: '#FFFFFF',
+                border: '1px solid #CBD5E1',
+                background: '#FFFFFF',
+                color: data.length === 0 ? '#94A3B8' : '#DC2626',
                 fontSize: '12px',
-                fontWeight: 700,
-                cursor: data.length === 0 ? 'not-allowed' : 'pointer'
+                fontWeight: 600,
+                cursor: data.length === 0 ? 'not-allowed' : 'pointer',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
               }}
               title="Export to PDF"
             >
-              <FileText size={14} />
+              <FileText size={14} color={data.length === 0 ? '#94A3B8' : '#DC2626'} />
               PDF
             </button>
           </div>
@@ -627,10 +629,10 @@ const ConsolidatedReportPage = () => {
                       </td>
                     </tr>
 
-                    {/* Fuel Summary Strip Row if fuel metrics exist */}
-                    {(vehicleItem.start_fuel != null || vehicleItem.total_refill > 0 || vehicleItem.total_dispensed > 0 || vehicleItem.total_theft > 0 || vehicleItem.consumption != null) && (
-                      <tr style={{ backgroundColor: '#F0FDF4' }}>
-                        <td colSpan={7} style={{ border: cellBorder, padding: '7px 16px', fontWeight: 'bold', fontSize: '12px', color: '#065F46', textAlign: 'center' }}>
+                    {/* Fuel Summary Strip Row if real fuel metrics exist (non-zero) */}
+                    {((vehicleItem.start_fuel > 0) || (vehicleItem.total_refill > 0) || (vehicleItem.total_dispensed > 0) || (vehicleItem.total_theft > 0) || (vehicleItem.consumption > 0)) && (
+                      <tr style={{ backgroundColor: '#F8FAFC' }}>
+                        <td colSpan={7} style={{ border: cellBorder, padding: '7px 16px', fontWeight: 'bold', fontSize: '12px', color: '#334155', textAlign: 'center' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
                             <span>Start Fuel: {vehicleItem.start_fuel != null ? `${vehicleItem.start_fuel} L` : '-'}</span>
                             <span>End Fuel: {vehicleItem.end_fuel != null ? `${vehicleItem.end_fuel} L` : '-'}</span>
@@ -651,31 +653,31 @@ const ConsolidatedReportPage = () => {
                     )}
 
                     {/* 3. Two-Row Table Header */}
-                    <tr style={{ background: '#064E3B' }}>
-                      <th rowSpan={2} style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, fontSize: '11.5px', color: '#FFFFFF', width: '110px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    <tr style={{ background: '#F8FAFC' }}>
+                      <th rowSpan={2} style={{ border: cellBorder, padding: '7px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 700, fontSize: '12px', color: '#334155', width: '110px' }}>
                         Status
                       </th>
-                      <th rowSpan={2} style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, fontSize: '11.5px', color: '#FFFFFF', width: '180px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      <th rowSpan={2} style={{ border: cellBorder, padding: '7px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 700, fontSize: '12px', color: '#334155', width: '180px' }}>
                         Start
                       </th>
-                      <th rowSpan={2} style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, fontSize: '11.5px', color: '#FFFFFF', width: '180px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      <th rowSpan={2} style={{ border: cellBorder, padding: '7px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 700, fontSize: '12px', color: '#334155', width: '180px' }}>
                         End
                       </th>
-                      <th rowSpan={2} style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, fontSize: '11.5px', color: '#FFFFFF', width: '160px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      <th rowSpan={2} style={{ border: cellBorder, padding: '7px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 700, fontSize: '12px', color: '#334155', width: '160px' }}>
                         Duration (HH:MM:SS)
                       </th>
-                      <th colSpan={3} style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', fontWeight: 800, fontSize: '11.5px', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      <th colSpan={3} style={{ border: cellBorder, padding: '7px 8px', textAlign: 'center', fontWeight: 700, fontSize: '12px', color: '#334155' }}>
                         Location Details
                       </th>
                     </tr>
-                    <tr style={{ background: '#064E3B' }}>
-                      <th style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', fontWeight: 800, fontSize: '11px', color: '#FFFFFF', width: '110px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    <tr style={{ background: '#F8FAFC' }}>
+                      <th style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontWeight: 600, fontSize: '11px', color: '#475569', width: '110px' }}>
                         Length
                       </th>
-                      <th style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', fontWeight: 800, fontSize: '11px', color: '#FFFFFF', width: '120px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      <th style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontWeight: 600, fontSize: '11px', color: '#475569', width: '120px' }}>
                         Speed Hike
                       </th>
-                      <th style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', fontWeight: 800, fontSize: '11px', color: '#FFFFFF', width: '110px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      <th style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontWeight: 600, fontSize: '11px', color: '#475569', width: '110px' }}>
                         Speed Avg
                       </th>
                     </tr>
@@ -704,7 +706,7 @@ const ConsolidatedReportPage = () => {
                                 {item.distance !== undefined ? `${Math.round(item.distance)} Km` : '0 Km'}
                               </td>
                               <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
-                                {item.max_speed ? `${item.max_speed} Km` : ' Km'}
+                                {item.max_speed != null ? `${Math.round(item.max_speed)} Km` : '0 Km'}
                               </td>
                               <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
                                 {item.avg_speed !== undefined ? `${item.avg_speed} Km` : '0 Km'}
