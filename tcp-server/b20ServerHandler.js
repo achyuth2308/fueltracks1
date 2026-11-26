@@ -116,17 +116,27 @@ function initB20Server(port, protocolStats, connectedDevices, publisher) {
           return;
         }
 
-        const imei = parsed.imei;
-        if (imei && imei !== sessionImei) {
-          sessionImei = imei;
-          const existing = connectedDevices.get(sessionImei);
+        const terminalId = parsed.imei;
+        // Map 12-digit BCD JT808 terminal phone to 15-digit sticker IMEI if configured
+        const B20_DEVICE_MAP = {
+          '015222900165': '863372050228849', // OBD_TG07U0911
+          '015222900135': '863372050222883'  // OBD_TS07FL4958
+        };
+        const imei = B20_DEVICE_MAP[terminalId] || terminalId;
+        parsed.imei = imei;
+        parsed.terminalId = terminalId;
+
+        if (terminalId && terminalId !== sessionImei) {
+          sessionImei = terminalId;
+          const existing = connectedDevices.get(terminalId);
           if (existing && existing.socket && existing.socket !== sock) {
             try { existing.socket.destroy(); } catch (e) {}
           }
-          connectedDevices.set(sessionImei, {
+          connectedDevices.set(terminalId, {
             socket: sock,
             clientId: cId,
             protocolName: PROTO,
+            imei: imei,
             lastPacket: new Date()
           });
         }
@@ -142,14 +152,14 @@ function initB20Server(port, protocolStats, connectedDevices, publisher) {
         }
 
         // ── Dispatch by JT808 Message ID ──────────────────────
-        const serverSeq = getNextServerSeq(imei || 'default');
+        const serverSeq = getNextServerSeq(terminalId || 'default');
 
         switch (parsed.msgIdNum) {
           // 0x0100: Terminal Registration
           case MSG_REGISTER: {
-            console.log(`[TCP - ${PROTO}] Register request from ${imei} (seq=${parsed.seqNum})`);
-            const authCode = `TR${imei ? imei.slice(-8) : '00000001'}`;
-            const ack = buildRegisterResponse(imei, parsed.seqNum, serverSeq, 0, authCode);
+            console.log(`[TCP - ${PROTO}] Register request from ${terminalId} (mapped IMEI: ${imei}, seq=${parsed.seqNum})`);
+            const authCode = `TR${terminalId ? terminalId.slice(-8) : '00000001'}`;
+            const ack = buildRegisterResponse(terminalId, parsed.seqNum, serverSeq, 0, authCode);
             sock.write(ack);
             if (protocolStats[PROTO]) protocolStats[PROTO].lastSuccessfulPacketAt = new Date().toISOString();
             break;
@@ -157,8 +167,8 @@ function initB20Server(port, protocolStats, connectedDevices, publisher) {
 
           // 0x0102: Terminal Authentication
           case MSG_AUTH: {
-            console.log(`[TCP - ${PROTO}] Authentication request from ${imei} (seq=${parsed.seqNum})`);
-            const ack = buildUniversalResponse(imei, parsed.seqNum, MSG_AUTH, serverSeq, 0);
+            console.log(`[TCP - ${PROTO}] Authentication request from ${terminalId} (mapped IMEI: ${imei}, seq=${parsed.seqNum})`);
+            const ack = buildUniversalResponse(terminalId, parsed.seqNum, MSG_AUTH, serverSeq, 0);
             sock.write(ack);
             if (protocolStats[PROTO]) protocolStats[PROTO].lastSuccessfulPacketAt = new Date().toISOString();
             break;
@@ -166,8 +176,8 @@ function initB20Server(port, protocolStats, connectedDevices, publisher) {
 
           // 0x0002: Heartbeat
           case MSG_HEARTBEAT: {
-            console.log(`[TCP - ${PROTO}] Heartbeat from ${imei} (seq=${parsed.seqNum})`);
-            const ack = buildUniversalResponse(imei, parsed.seqNum, MSG_HEARTBEAT, serverSeq, 0);
+            console.log(`[TCP - ${PROTO}] Heartbeat from ${terminalId} (mapped IMEI: ${imei}, seq=${parsed.seqNum})`);
+            const ack = buildUniversalResponse(terminalId, parsed.seqNum, MSG_HEARTBEAT, serverSeq, 0);
             sock.write(ack);
 
             if (imei) {
@@ -188,7 +198,7 @@ function initB20Server(port, protocolStats, connectedDevices, publisher) {
           // 0x0200: Location & OBD Telemetry
           case MSG_LOCATION: {
             // Send 0x8001 Universal ACK
-            const ack = buildUniversalResponse(imei, parsed.seqNum, MSG_LOCATION, serverSeq, 0);
+            const ack = buildUniversalResponse(terminalId, parsed.seqNum, MSG_LOCATION, serverSeq, 0);
             sock.write(ack);
 
             const hasValidGps = (parsed.gpsValid === 'A' || parsed.gpsValid === true)
@@ -199,13 +209,14 @@ function initB20Server(port, protocolStats, connectedDevices, publisher) {
               socket: sock,
               clientId: cId,
               protocolName: PROTO,
+              imei: imei,
               lastPacket: new Date()
             };
             if (hasValidGps) {
               devEntry.lat = parsed.lat;
               devEntry.lng = parsed.lng;
             }
-            connectedDevices.set(imei, devEntry);
+            connectedDevices.set(terminalId, devEntry);
 
             if (hasValidGps) {
               await publisher.publishLocation(parsed);
@@ -226,8 +237,8 @@ function initB20Server(port, protocolStats, connectedDevices, publisher) {
 
           default: {
             // General Universal ACK for other tracker reports
-            console.log(`[TCP - ${PROTO}] Unhandled MsgId ${parsed.msgId} from ${imei}`);
-            const ack = buildUniversalResponse(imei, parsed.seqNum, parsed.msgIdNum, serverSeq, 0);
+            console.log(`[TCP - ${PROTO}] Unhandled MsgId ${parsed.msgId} from ${terminalId} (${imei})`);
+            const ack = buildUniversalResponse(terminalId, parsed.seqNum, parsed.msgIdNum, serverSeq, 0);
             sock.write(ack);
             if (protocolStats[PROTO]) protocolStats[PROTO].lastSuccessfulPacketAt = new Date().toISOString();
             break;
