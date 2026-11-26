@@ -1343,11 +1343,11 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             }}>
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#94A3B8' }} />
               <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>
-                {currentSelected 
-                  ? `${currentSelected.plate || currentSelected.name} has no GPS fix yet (Never connected). Showing default map.` 
-                  : (vehicles.length === 1 
-                      ? `${vehicles[0]?.plate || vehicles[0]?.name || 'Vehicle'} has no GPS fix yet. Showing default map.`
-                      : 'Vehicles have not sent GPS data yet. Showing default map.')}
+                {currentSelected
+                  ? `${currentSelected.plate || currentSelected.name} has no GPS fix yet (Never connected). Showing default map.`
+                  : (vehicles.length === 1
+                    ? `${vehicles[0]?.plate || vehicles[0]?.name || 'Vehicle'} has no GPS fix yet. Showing default map.`
+                    : 'Vehicles have not sent GPS data yet. Showing default map.')}
               </span>
             </div>
           )}

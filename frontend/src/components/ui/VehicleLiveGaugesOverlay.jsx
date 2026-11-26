@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { hasPhysicalFuelSensor } from '../../utils/licenseUtils';
 
 /**
  * VehicleLiveGaugesOverlay
@@ -126,9 +127,33 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {}, onClose }) => {
     return false;
   }, [vehicle, tankCapacity, meta]);
 
+  // 4b. Strict Manual Fuel Check
+  const isManualFuel = useMemo(() => {
+    if (!vehicle) return false;
+    return Boolean(
+      vehicle.is_manual_fuel ||
+      vehicle.manual_tank_capacity ||
+      (!hasPhysicalFuelSensor(vehicle) && (currentFuel > 0 || vehicle.current_fuel != null))
+    );
+  }, [vehicle, currentFuel]);
+
+  // 4c. Fuel Used (Consumption)
+  const fuelUsed = useMemo(() => {
+    if (!vehicle) return 0;
+    const mileage = parseFloat(vehicle.manual_mileage || meta.expectedMileage || vehicle.expected_mileage) || 8.0;
+    if (vehicle.manual_fuel_consumed !== undefined && vehicle.manual_fuel_consumed !== null && Number(vehicle.manual_fuel_consumed) > 0) {
+      return Number(vehicle.manual_fuel_consumed);
+    }
+    const dist = Number(vehicle.today_distance || 0);
+    return dist > 0 && mileage > 0 ? (dist / mileage) : 0;
+  }, [vehicle, meta]);
+
   // 5. Estimated Distance Calculation (Dynamically uses this vehicle's expectedMileage)
   const estimatedKm = useMemo(() => {
-    const mileage = parseFloat(meta.expectedMileage || vehicle.expected_mileage) || 4.0;
+    if (vehicle.manual_estimated_range !== undefined && vehicle.manual_estimated_range !== null && Number(vehicle.manual_estimated_range) > 0) {
+      return Number(vehicle.manual_estimated_range).toFixed(1);
+    }
+    const mileage = parseFloat(vehicle.manual_mileage || meta.expectedMileage || vehicle.expected_mileage) || 4.0;
     return (currentFuel * mileage).toFixed(1);
   }, [meta, vehicle, currentFuel]);
 
@@ -397,18 +422,30 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {}, onClose }) => {
                 fontWeight="700"
                 fill="#0F172A"
               >
-                Fuel - {Math.round(currentFuel)} Ltr
+                {isManualFuel ? 'Est. Fuel' : 'Fuel'} - {Math.round(currentFuel)} Ltr
               </text>
             </svg>
           </div>
 
-          {/* Estimated Distance */}
-          <div style={{ textAlign: 'center', marginTop: '-2px' }}>
-            <div style={{ fontSize: '9.5px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
-              Estimated Distance
-            </div>
-            <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0F172A', marginTop: '1px' }}>
-              {estimatedKm} Km
+          {/* Metrics below gauge */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isManualFuel ? '12px' : '0px', marginTop: '-2px', width: '100%' }}>
+            {isManualFuel && (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '9px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
+                  Fuel Used
+                </div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#EA580C', marginTop: '1px' }}>
+                  {fuelUsed.toFixed(1)} L
+                </div>
+              </div>
+            )}
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '9px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
+                {isManualFuel ? 'Est. Range' : 'Estimated Distance'}
+              </div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#0F172A', marginTop: '1px' }}>
+                {estimatedKm} Km
+              </div>
             </div>
           </div>
         </div>

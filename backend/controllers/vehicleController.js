@@ -574,7 +574,7 @@ const VehicleController = {
   async updateVehicleSettings(req, res, next) {
     try {
       const { id } = req.params;
-      const { overSpeedLimit, overspeedDurationAlert, idleDurationAlert, parkingDurationAlert, parkDurationAlert, movingDurationAlert, stoppageThreshold, alertConfig, safetyPark, driverName, driverPhone } = req.body;
+      const { name, vehicleName, odometer, odometerReading, overSpeedLimit, overspeedDurationAlert, idleDurationAlert, parkingDurationAlert, parkDurationAlert, movingDurationAlert, stoppageThreshold, alertConfig, safetyPark, driverName, driverPhone } = req.body;
 
       // Ownership check (unless superadmin)
       if (req.user.role !== 'superadmin') {
@@ -653,6 +653,44 @@ const VehicleController = {
       const updatePayload = { metadata: newMetadata };
       if (driverName !== undefined) updatePayload.driverName = driverName;
       if (driverPhone !== undefined) updatePayload.driverPhone = driverPhone;
+
+      // Handle Vehicle Name update
+      const rawName = (name !== undefined ? name : vehicleName);
+      if (rawName && typeof rawName === 'string' && rawName.trim().length > 0) {
+        const newName = rawName.trim();
+        const existingName = await db.query(
+          `SELECT id FROM vehicles WHERE UPPER(TRIM(name)) = UPPER(TRIM($1)) AND id != $2 AND org_id = $3`,
+          [newName, id, vehicle.org_id]
+        );
+        if (existingName.rows.length === 0) {
+          updatePayload.name = newName;
+        }
+      }
+
+      // Handle Odometer Reading update
+      const odoInput = (odometerReading !== undefined ? odometerReading : odometer);
+      if (odoInput !== undefined && odoInput !== null && String(odoInput).trim() !== '') {
+        const newBaseline = String(parseFloat(odoInput) || 0);
+        const oldBaseline = String(currentMetadata.odometerReading || '0');
+        const oldSnapshot = String(currentMetadata.odometerSnapshot || '0');
+        newMetadata.odometerReading = newBaseline;
+
+        if (oldBaseline !== newBaseline || oldSnapshot === '0' || !oldSnapshot) {
+          try {
+            const vls = await db.query(
+              'SELECT odometer FROM vehicle_latest_state WHERE vehicle_id = $1',
+              [id]
+            );
+            const currentGpsOdo = vls.rows[0]?.odometer ?? 0;
+            newMetadata.odometerSnapshot = String(currentGpsOdo);
+          } catch (e) {
+            console.error('[updateVehicleSettings] Error snapshotting odometer:', e.message);
+          }
+        } else {
+          newMetadata.odometerSnapshot = oldSnapshot;
+        }
+      }
+
       const updated = await VehicleModel.update(id, updatePayload);
 
       // Invalidate vehicle caches
@@ -1080,6 +1118,13 @@ const VehicleController = {
       }
 
       const updated = await VehicleModel.update(id, { name: newName });
+
+      // Invalidate vehicle caches
+      try {
+        await redis.del('vehicles:all');
+        await redis.del(`vehicle:obj:${id}`);
+        if (vehicle.imei) await redis.del(`vehicle:imei:${vehicle.imei}`);
+      } catch (cErr) {}
 
       // Audit log
       await AuditService.log({

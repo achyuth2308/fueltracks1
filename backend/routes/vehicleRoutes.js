@@ -32,8 +32,8 @@ router.post('/:id/migrate', authorize('superadmin', 'dealer'), VehicleController
 router.post('/:id/add-user', authorize('superadmin', 'dealer'), VehicleController.addUserToVehicle);
 router.post('/:id/calibrate', authorize('superadmin', 'dealer'), VehicleController.calibrateVehicle);
 router.put('/:id/calibrate', authorize('superadmin', 'dealer'), VehicleController.calibrateVehicle);
-router.post('/:id/rename', authorize('superadmin', 'dealer'), VehicleController.renameVehicle);
-router.put('/:id/rename', authorize('superadmin', 'dealer'), VehicleController.renameVehicle);
+router.post('/:id/rename', authorize('superadmin', 'dealer', 'customer'), VehicleController.renameVehicle);
+router.put('/:id/rename', authorize('superadmin', 'dealer', 'customer'), VehicleController.renameVehicle);
 router.post('/:id/reprocess', authorize('superadmin', 'dealer'), VehicleController.reprocessVehicle);
 
 // Analytics, History & Live Route

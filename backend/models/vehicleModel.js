@@ -32,11 +32,23 @@ function enrichVehicleFuel(v) {
     ? Math.max(0, Math.min(100, Math.round((curFuel / tankCap) * 1000) / 10))
     : null;
 
+  const mileage = parseFloat(v.manual_mileage || meta.expectedMileage || v.expected_mileage || 8.0);
+  const estRange = v.manual_estimated_range != null
+    ? Math.round(parseFloat(v.manual_estimated_range) * 10) / 10
+    : (curFuel != null && curFuel > 0 ? Math.round(curFuel * mileage * 10) / 10 : 0);
+
+  const consumed = v.manual_fuel_consumed != null
+    ? Math.round(parseFloat(v.manual_fuel_consumed) * 10) / 10
+    : (parseFloat(v.today_distance || 0) > 0 && mileage > 0 ? Math.round((parseFloat(v.today_distance) / mileage) * 10) / 10 : 0);
+
   return {
     ...v,
     current_fuel: curFuel,
     tank_capacity: tankCap,
-    fuel_percentage: fuelPercent
+    fuel_percentage: fuelPercent,
+    manual_estimated_range: estRange,
+    manual_fuel_consumed: consumed,
+    manual_mileage: mileage
   };
 }
 
@@ -84,6 +96,10 @@ const VehicleModel = {
               vls.lat, vls.lng, vls.speed as current_speed,
               COALESCE(vls.fuel, vfs.current_fuel) as current_fuel,
               COALESCE(vfc.tank_capacity, NULL) as manual_tank_capacity,
+              COALESCE(vfs.total_fuel_consumed, 0) as manual_fuel_consumed,
+              COALESCE(vfs.current_mileage, vfc.initial_mileage, NULL) as manual_mileage,
+              COALESCE(vfs.estimated_range_km, NULL) as manual_estimated_range,
+              CASE WHEN vfc.vehicle_id IS NOT NULL THEN TRUE ELSE FALSE END as is_manual_fuel,
               vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.battery as current_battery,
               CASE 
@@ -211,6 +227,10 @@ const VehicleModel = {
               vls.lat, vls.lng, vls.speed as current_speed,
               COALESCE(vls.fuel, vfs.current_fuel) as current_fuel,
               COALESCE(vfc.tank_capacity, NULL) as manual_tank_capacity,
+              COALESCE(vfs.total_fuel_consumed, 0) as manual_fuel_consumed,
+              COALESCE(vfs.current_mileage, vfc.initial_mileage, NULL) as manual_mileage,
+              COALESCE(vfs.estimated_range_km, NULL) as manual_estimated_range,
+              CASE WHEN vfc.vehicle_id IS NOT NULL THEN TRUE ELSE FALSE END as is_manual_fuel,
               vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.battery as current_battery,
               CASE 
@@ -244,7 +264,8 @@ const VehicleModel = {
                 v.server_name, v.gps_sim_no, v.device_version, v.timezone,
                 v.apn, v.licence_issued_date, v.licence_expire_date, v.metadata,
                 v.category,
-                o.name, d.licence_id, d.device_type, vls.lat, vls.lng, vls.speed, vls.fuel, vfs.current_fuel, vfc.tank_capacity, vls.ignition,
+                o.name, d.licence_id, d.device_type, vls.lat, vls.lng, vls.speed, vls.fuel, vfs.current_fuel, vfc.tank_capacity,
+                vfs.total_fuel_consumed, vfs.current_mileage, vfc.initial_mileage, vfs.estimated_range_km, vfc.vehicle_id, vls.ignition,
                 vls.voltage, vls.battery, vls.is_immobilized, vls.immobilizer_updated_at, vls.last_seen, vls.direction, vls.odometer, vls.today_distance, vls.today_start_odometer
        ORDER BY v.created_at DESC NULLS LAST, v.id DESC
        LIMIT $${paramIndex++} OFFSET $${paramIndex}`,

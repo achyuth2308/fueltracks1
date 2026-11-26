@@ -12,6 +12,7 @@ import { formatLocalTime, getNoDataDuration } from '../../utils/dateUtils';
 import LocationDisplay from '../ui/LocationDisplay';
 import VehicleLiveGaugesOverlay from '../ui/VehicleLiveGaugesOverlay';
 import { useProfile } from '../../modules/profile/hooks/useProfile';
+import { hasPhysicalFuelSensor } from '../../utils/licenseUtils';
 
 
 
@@ -528,14 +529,57 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
                   - {liveRouteMetrics[vehicle.id]?.cDist !== undefined ? Number(liveRouteMetrics[vehicle.id].cDist).toFixed(2) : (Number(vehicle.today_distance) || 0).toFixed(2)} kms
                 </td>
               </tr>
-              {vehicle.current_fuel !== undefined && vehicle.current_fuel !== null && Number(vehicle.current_fuel) > 0 && (
-                <tr>
-                  <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Estimated Fuel</td>
-                  <td style={{ color: '#0284c7', fontWeight: 700, padding: '2px 0' }}>
-                    - {Math.round(Number(vehicle.current_fuel))} L {vehicle.tank_capacity ? `(${Math.min(100, Math.round((Number(vehicle.current_fuel) / Number(vehicle.tank_capacity)) * 100))}%)` : ''}
-                  </td>
-                </tr>
-              )}
+              {vehicle.current_fuel !== undefined && vehicle.current_fuel !== null && Number(vehicle.current_fuel) > 0 && (() => {
+                const isManual = Boolean(
+                  vehicle.is_manual_fuel ||
+                  vehicle.manual_tank_capacity ||
+                  (!hasPhysicalFuelSensor(vehicle) && vehicle.current_fuel != null)
+                );
+
+                if (!isManual) {
+                  // Physical hardware sensor: show how much is in the tank
+                  return (
+                    <tr>
+                      <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Fuel</td>
+                      <td style={{ color: '#0284c7', fontWeight: 700, padding: '2px 0' }}>
+                        - {Math.round(Number(vehicle.current_fuel))} L {vehicle.tank_capacity ? `(${Math.min(100, Math.round((Number(vehicle.current_fuel) / Number(vehicle.tank_capacity)) * 100))}%)` : ''}
+                      </td>
+                    </tr>
+                  );
+                }
+
+                // Manual fuel: show Estimated Fuel, Fuel Used (consumption), and Estimated Range (km vehicle can run with current fuel)
+                const mileage = parseFloat(vehicle.manual_mileage || vehicle.metadata?.expectedMileage || vehicle.expected_mileage || 8.0);
+                const fuelUsed = vehicle.manual_fuel_consumed !== undefined && vehicle.manual_fuel_consumed !== null && Number(vehicle.manual_fuel_consumed) > 0
+                  ? Number(vehicle.manual_fuel_consumed)
+                  : (Number(vehicle.today_distance || 0) > 0 && mileage > 0 ? (Number(vehicle.today_distance) / mileage) : 0);
+                const estRange = vehicle.manual_estimated_range !== undefined && vehicle.manual_estimated_range !== null && Number(vehicle.manual_estimated_range) > 0
+                  ? Number(vehicle.manual_estimated_range)
+                  : (Number(vehicle.current_fuel || 0) > 0 && mileage > 0 ? (Number(vehicle.current_fuel) * mileage) : 0);
+
+                return (
+                  <>
+                    <tr>
+                      <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Estimated Fuel</td>
+                      <td style={{ color: '#0284c7', fontWeight: 700, padding: '2px 0' }}>
+                        - {Math.round(Number(vehicle.current_fuel))} L {vehicle.tank_capacity ? `(${Math.min(100, Math.round((Number(vehicle.current_fuel) / Number(vehicle.tank_capacity)) * 100))}%)` : ''}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Fuel Used</td>
+                      <td style={{ color: '#ea580c', fontWeight: 700, padding: '2px 0' }}>
+                        - {fuelUsed.toFixed(1)} L
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Estimated Range</td>
+                      <td style={{ color: '#16a34a', fontWeight: 700, padding: '2px 0' }}>
+                        - {Math.round(estRange)} kms
+                      </td>
+                    </tr>
+                  </>
+                );
+              })()}
               {getNoDataDuration(vehicle.last_seen) && (status === 'offline' || status === 'nodata') ? (
                 <>
                   <tr>
