@@ -125,6 +125,64 @@ const DashboardLayout = ({ vehicles = [] }) => {
           </ErrorBoundary>
         </main>
       </div>
+
+      {/* Floating Bottom-Right Support Badge (Positioned on the right side to avoid colliding with bottom meters) */}
+      {!isAdmin && (supportPhone || supportEmail) && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '10px',
+            right: '16px',
+            left: 'auto',
+            transform: 'none',
+            zIndex: 9990,
+            background: '#006778',
+            color: '#FFFFFF',
+            padding: '4px 12px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: 700,
+            letterSpacing: '0.02em',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            pointerEvents: 'auto',
+            userSelect: 'none',
+            whiteSpace: 'nowrap',
+            fontFamily: "'Inter', system-ui, sans-serif"
+          }}
+        >
+          <span>Support Details:</span>
+          <span style={{ color: '#E0F2FE' }}>{supportBrand}</span>
+          {supportPhone && (
+            <>
+              <span>,</span>
+              <a
+                href={`tel:${supportPhone}`}
+                style={{ color: '#FFFFFF', textDecoration: 'none' }}
+                onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+              >
+                {supportPhone}
+              </a>
+            </>
+          )}
+          {supportEmail && (
+            <>
+              <span>,</span>
+              <a
+                href={`mailto:${supportEmail}`}
+                style={{ color: '#FFFFFF', textDecoration: 'none' }}
+                onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+              >
+                {supportEmail}
+              </a>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };

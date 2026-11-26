@@ -135,7 +135,15 @@ function parseVoltyFuelFrame(f) {
             }
           } else if (len === 5) {
             // 5-byte format: byte 0 is sensor status/address, bytes 1-4 is level
-            fuelLitres = val.readUInt32BE(1);
+            // AIS-140 TranSync / Volty spec: byte 0 MUST be 0x00 for normal fuel level reading.
+            // Non-zero status (0x40, 0x09, etc.) represents communication fault, offline probe, or RFID burst.
+            if (val[0] === 0x00) {
+              const rawLevel = val.readUInt32BE(1);
+              // Sanity limit: max 200,000 raw units (2,000 Ltrs at ÷100 scale)
+              if (rawLevel <= 200000) {
+                fuelLitres = rawLevel;
+              }
+            }
           } else if (len > 0 && len <= 6) {
             fuelLitres = val.readUIntBE(0, len);
           }

@@ -787,7 +787,7 @@ const SensorLogsPage = () => {
                     <td colSpan={activeCols.length + 2} style={{ padding: '60px 24px', textAlign: 'center', color: '#94A3B8' }}>
                       <Server size={36} style={{ marginBottom: '12px', opacity: 0.4 }} />
                       <div style={{ fontSize: '15px', fontWeight: 700, color: '#334155' }}>No Sensor Packets Received</div>
-                      <div style={{ fontSize: '13px', marginTop: '4px' }}>Packets from port 5000–5011 will appear here in real-time.</div>
+                      <div style={{ fontSize: '13px', marginTop: '4px' }}>Packets from port 5000–5013 will appear here in real-time.</div>
                     </td>
                   </tr>
                 ) : (

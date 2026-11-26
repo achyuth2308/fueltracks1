@@ -37,6 +37,8 @@ const CACHE_SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 // Per-vehicle push throttle: Max 1 push per 15 seconds per vehicle
 const lastPushTimestamps = new Map();
 const THROTTLE_INTERVAL_MS = 15 * 1000; // 15 seconds
+const unmappedImeiCooldowns = new Map(); // imei -> cooldown expiry timestamp
+const UNMAPPED_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes backoff for unmapped devices
 
 /**
  * Syncs the in-memory Set of vehicle IDs belonging to the Mining group.
@@ -123,6 +125,12 @@ async function pushToMines(vehicle, point) {
     // 1. FAST MEMORY CHECK: Only process vehicles in the Mining group
     const isTarget = miningVehicleSet.has(vehicle.id) || miningVehicleSet.has(imei);
     if (!isTarget) return;
+
+    // 1b. UNMAPPED BACKOFF: If Gov portal rejected vehicle as unmapped, pause attempts for 15 mins
+    const unmappedExpiry = unmappedImeiCooldowns.get(imei) || 0;
+    if (Date.now() < unmappedExpiry) {
+      return; // Skip outbound HTTP storm for unmapped vehicle
+    }
 
     // 2. MUST have valid coordinates
     const lat = parseFloat(point.lat);
@@ -250,6 +258,8 @@ async function pushToMines(vehicle, point) {
       if (typeof responseData === 'string' && /no vehicle mapping found/i.test(responseData)) {
         displayMessage = 'Not Mapped on Gov Portal';
         pushStatus = 'UNMAPPED';
+        // Backoff: pause outbound pushes for this unmapped device for 15 minutes
+        unmappedImeiCooldowns.set(imei, Date.now() + UNMAPPED_COOLDOWN_MS);
       } else if (typeof responseData === 'string' && /too many clients/i.test(responseData)) {
         displayMessage = 'Gov Server Busy';
         pushStatus = 'WARNING';

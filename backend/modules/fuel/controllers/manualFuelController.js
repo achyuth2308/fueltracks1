@@ -9,7 +9,7 @@ class ManualFuelController {
     try {
       const { vehicleId } = req.params;
       const config = await manualFuelService.getVehicleFuelConfig(vehicleId);
-      res.json({ success: true, data: config });
+      res.json({ success: true, data: config, config: config });
     } catch (err) {
       next(err);
     }
@@ -21,11 +21,15 @@ class ManualFuelController {
   async saveConfig(req, res, next) {
     try {
       const { vehicleId } = req.params;
-      const orgId = req.user.orgId;
+      const orgId = req.user?.orgId || req.user?.org_id;
       const config = await manualFuelService.upsertVehicleFuelConfig(vehicleId, orgId, req.body);
       res.json({ success: true, message: 'Vehicle fuel configuration saved successfully.', data: config });
     } catch (err) {
-      next(err);
+      console.error('[MANUAL_FUEL] Error saving fuel config:', err.message);
+      res.status(400).json({
+        success: false,
+        error: err.message || 'Failed to save vehicle fuel configuration.',
+      });
     }
   }
 
@@ -57,7 +61,11 @@ class ManualFuelController {
         data: result,
       });
     } catch (err) {
-      next(err);
+      console.error('[MANUAL_FUEL] Error submitting fuel entry:', err.message);
+      res.status(400).json({
+        success: false,
+        error: err.message || 'Error recording fuel entry.',
+      });
     }
   }
 
@@ -70,6 +78,25 @@ class ManualFuelController {
       const { page, limit, entryType } = req.query;
       const result = await manualFuelService.getFuelEntries(vehicleId, { page, limit, entryType });
       res.json({ success: true, data: result.entries, pagination: { total: result.total, page: result.page, limit: result.limit } });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * GET /api/fuel/manual/chart/:vehicleId
+   * Chart timeline, refills & mileage history for manual fuel
+   */
+  async getChartData(req, res, next) {
+    try {
+      const { vehicleId } = req.params;
+      const { range, startDate, endDate, from, to } = req.query;
+      const data = await manualFuelService.getFuelChartData(vehicleId, {
+        range,
+        startDate: startDate || from,
+        endDate: endDate || to
+      });
+      res.json({ success: true, data });
     } catch (err) {
       next(err);
     }

@@ -299,7 +299,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
     const status = getStatus(v);
     const isSelected = currentSelected?.id === v.id;
     const sc = isExpired ? '#DC2626' : (isExpiring ? '#D97706' : statusColors[status]);
-    const vHasFuel = hasVehicleFuelCapability(v);
+    const vHasFuel = hasVehicleFuelCapability(v) || (v.current_fuel !== undefined && v.current_fuel !== null) || v.manual_tank_capacity;
     const isIgnitionOn = !!v.current_ignition;
 
     return (
@@ -480,31 +480,58 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             <span style={{ fontWeight: 600, color: '#334155', fontSize: '9.5px' }}>
               {v.is_online ? `${Math.round(v.current_speed || 0)} km/h` : '0 km/h'}
             </span>
-            {vHasFuel && v.current_fuel !== undefined && v.current_fuel !== null && (
-              <span
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedFuelVehicle(v);
-                  setIsFuelEntryOpen(true);
-                }}
-                title="Click to Log Manual Fuel Entry"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '2px',
-                  color: '#0284C7',
-                  fontWeight: 600,
-                  fontSize: '9.5px',
-                  cursor: 'pointer',
-                  borderRadius: '3px',
-                  padding: '0 2px'
-                }}
-                onMouseEnter={e => e.currentTarget.style.color = '#EA580C'}
-                onMouseLeave={e => e.currentTarget.style.color = '#0284C7'}
-              >
-                <Fuel size={8} />
-                {Math.round(Number(v.current_fuel))}L
-              </span>
+            {vHasFuel && (
+              (v.current_fuel !== undefined && v.current_fuel !== null && Number(v.current_fuel) >= 0) ? (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedFuelVehicle(v);
+                    setIsFuelEntryOpen(true);
+                  }}
+                  title="Click to Log Fuel Transaction / Refill"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '2px',
+                    color: '#0284C7',
+                    fontWeight: 600,
+                    fontSize: '9.5px',
+                    cursor: 'pointer',
+                    borderRadius: '3px',
+                    padding: '0 2px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#EA580C'}
+                  onMouseLeave={e => e.currentTarget.style.color = '#0284C7'}
+                >
+                  <Fuel size={8} />
+                  {Math.round(Number(v.current_fuel))}L
+                </span>
+              ) : (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedFuelVehicle(v);
+                    setIsFuelEntryOpen(true);
+                  }}
+                  title="Click to Initialize Vehicle Fuel"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '2px',
+                    color: '#94A3B8',
+                    fontWeight: 600,
+                    fontSize: '9px',
+                    cursor: 'pointer',
+                    borderRadius: '3px',
+                    padding: '0 2px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#EA580C'}
+                  onMouseLeave={e => e.currentTarget.style.color = '#94A3B8'}
+                >
+                  <Fuel size={8} />
+                  Set Fuel
+                </span>
+              )
             )}
           </div>
 
@@ -868,132 +895,132 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         </div>
       </div>
 
-      {/* ── Hover Tooltip Card (Matching Reference Legacy Layout) ── */}
-      {hoveredVehicle && (!currentSelected || hoveredVehicle.id !== currentSelected.id) && (
-        <div style={{
-          position: 'absolute',
-          top: window.innerWidth > 768 ? `${hoverPosY}px` : '20px',
-          left: window.innerWidth > 768 ? '300px' : '12px',
-          right: window.innerWidth > 768 ? 'auto' : '12px',
-          width: window.innerWidth > 768 ? '360px' : 'auto',
-          maxWidth: 'calc(100vw - 24px)',
-          background: 'rgba(241, 245, 249, 0.95)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          border: '1px solid rgba(203, 213, 225, 0.8)',
-          borderRadius: '8px',
-          padding: '8px 12px',
-          zIndex: 1001,
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '6px',
-          pointerEvents: 'none',
-          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-          fontSize: '11px'
-        }}>
-          {/* Header Bar: Timestamp on left, Vehicle Name on right */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '8px',
-            borderBottom: '1px solid rgba(203, 213, 225, 0.8)',
-            paddingBottom: '4px',
-            color: '#64748b',
-            fontSize: '11px',
-            fontWeight: 600
-          }}>
-            <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{formatCardTimestamp(hoveredVehicle.last_seen)}</span>
-            <span style={{ color: '#0f172a', fontWeight: 800, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hoveredVehicle.name}</span>
-          </div>
-
-          {/* Expiry Warning if applicable */}
-          {(() => {
-            const warning = getExpiryWarning(hoveredVehicle);
-            if (!warning) return null;
-            const isExpired = warning.type === 'expired';
-            return (
-              <div style={{
-                background: isExpired ? 'rgba(254, 242, 242, 0.9)' : 'rgba(255, 251, 235, 0.9)',
-                border: `1px solid ${isExpired ? '#fecaca' : '#fde68a'}`,
-                padding: '4px 8px',
-                borderRadius: '6px',
-                fontSize: '10px',
-                fontWeight: 700,
-                color: isExpired ? '#b91c1c' : '#d97706'
-              }}>
-                ⚠️ {warning.text}
-              </div>
-            );
-          })()}
-
-          {/* Table Grid matching Image 2 */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', lineHeight: '1.6' }}>
-            <tbody>
-              <tr>
-                <td style={{ color: '#64748b', padding: '2px 0', width: '28%' }}>Odo (Kms)</td>
-                <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0', width: '22%' }}>
-                  {Math.max(0, Math.round(Number(liveRouteMetrics[hoveredVehicle.id]?.dynamicOdo ?? hoveredVehicle.current_odometer ?? hoveredVehicle.today_distance ?? 0) || 0)).toLocaleString()}
-                </td>
-                <td style={{ color: '#64748b', padding: '2px 0', width: '28%' }}>Covered (Kms)</td>
-                <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0', width: '22%' }}>
-                  {liveRouteMetrics[hoveredVehicle.id]?.cDist !== undefined ? Number(liveRouteMetrics[hoveredVehicle.id].cDist).toFixed(2) : (Number(hoveredVehicle.today_distance) || 0).toFixed(2)}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ color: '#64748b', padding: '2px 0' }}>Ignition</td>
-                <td style={{ color: hoveredVehicle.current_ignition ? '#16a34a' : '#ef4444', fontWeight: 700, padding: '2px 0' }}>
-                  {hoveredVehicle.current_ignition ? 'ON' : 'OFF'}
-                </td>
-                <td style={{ color: '#64748b', padding: '2px 0' }}>Max Speed (Kms)</td>
-                <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
-                  {liveRouteMetrics[hoveredVehicle.id]?.maxSpeed !== undefined
-                    ? liveRouteMetrics[hoveredVehicle.id].maxSpeed
-                    : (hoveredVehicle.max_speed || (hoveredVehicle.current_speed ? Math.round(hoveredVehicle.current_speed) : 0))}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ color: '#64748b', padding: '2px 0' }}>Veh Battery</td>
-                <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
-                  {formatVoltage(hoveredVehicle.current_voltage || hoveredVehicle.metadata?.batteryVoltage)}
-                </td>
-                <td style={{ color: '#64748b', padding: '2px 0' }}>Speed (Kms)</td>
-                <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
-                  {Math.round(hoveredVehicle.is_online ? (hoveredVehicle.current_speed || 0) : 0)}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ color: '#64748b', padding: '2px 0' }}>Dev Battery</td>
-                <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
-                  {(() => {
-                    const b = hoveredVehicle.current_battery ?? hoveredVehicle.battery ?? hoveredVehicle.metadata?.devBattery ?? hoveredVehicle.dev_battery ?? hoveredVehicle.device_battery;
-                    return b !== undefined && b !== null ? `${b}%` : 'N/A';
-                  })()}
-                </td>
-                <td style={{ color: '#64748b', padding: '2px 0' }}>Direction</td>
-                <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
-                  {formatDirection(hoveredVehicle.current_direction)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          {/* Location Address */}
-          <div style={{
-            borderTop: '1px solid rgba(203, 213, 225, 0.8)',
-            paddingTop: '4px',
-            color: '#475569',
-            fontSize: '10px',
-            lineHeight: '1.4'
-          }}>
-            {hoveredVehicleAddress || (hoveredVehicle?.last_seen ? 'Location unavailable' : 'Never communicated')}
-          </div>
-        </div>
-      )}
-
       {/* ── Body: Vehicle List + Map ── */}
       <div className="tracking-container" style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+
+        {/* ── Hover Tooltip Card (Placed directly beside the vehicles sidebar) ── */}
+        {hoveredVehicle && (!currentSelected || hoveredVehicle.id !== currentSelected.id) && (
+          <div style={{
+            position: 'absolute',
+            top: window.innerWidth > 768 ? `${hoverPosY}px` : '20px',
+            left: window.innerWidth > 768 ? (isSidebarCollapsed ? '12px' : '254px') : '12px',
+            right: window.innerWidth > 768 ? 'auto' : '12px',
+            width: window.innerWidth > 768 ? '360px' : 'auto',
+            maxWidth: 'calc(100vw - 24px)',
+            background: 'rgba(241, 245, 249, 0.95)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: '1px solid rgba(203, 213, 225, 0.8)',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            zIndex: 1050,
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+            pointerEvents: 'none',
+            fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+            fontSize: '11px'
+          }}>
+            {/* Header Bar: Timestamp on left, Vehicle Name on right */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '8px',
+              borderBottom: '1px solid rgba(203, 213, 225, 0.8)',
+              paddingBottom: '4px',
+              color: '#64748b',
+              fontSize: '11px',
+              fontWeight: 600
+            }}>
+              <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{formatCardTimestamp(hoveredVehicle.last_seen)}</span>
+              <span style={{ color: '#0f172a', fontWeight: 800, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hoveredVehicle.name}</span>
+            </div>
+
+            {/* Expiry Warning if applicable */}
+            {(() => {
+              const warning = getExpiryWarning(hoveredVehicle);
+              if (!warning) return null;
+              const isExpired = warning.type === 'expired';
+              return (
+                <div style={{
+                  background: isExpired ? 'rgba(254, 242, 242, 0.9)' : 'rgba(255, 251, 235, 0.9)',
+                  border: `1px solid ${isExpired ? '#fecaca' : '#fde68a'}`,
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  color: isExpired ? '#b91c1c' : '#d97706'
+                }}>
+                  ⚠️ {warning.text}
+                </div>
+              );
+            })()}
+
+            {/* Table Grid matching Image 2 */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', lineHeight: '1.6' }}>
+              <tbody>
+                <tr>
+                  <td style={{ color: '#64748b', padding: '2px 0', width: '28%' }}>Odo (Kms)</td>
+                  <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0', width: '22%' }}>
+                    {Math.max(0, Math.round(Number(liveRouteMetrics[hoveredVehicle.id]?.dynamicOdo ?? hoveredVehicle.current_odometer ?? hoveredVehicle.today_distance ?? 0) || 0)).toLocaleString()}
+                  </td>
+                  <td style={{ color: '#64748b', padding: '2px 0', width: '28%' }}>Covered (Kms)</td>
+                  <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0', width: '22%' }}>
+                    {liveRouteMetrics[hoveredVehicle.id]?.cDist !== undefined ? Number(liveRouteMetrics[hoveredVehicle.id].cDist).toFixed(2) : (Number(hoveredVehicle.today_distance) || 0).toFixed(2)}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ color: '#64748b', padding: '2px 0' }}>Ignition</td>
+                  <td style={{ color: hoveredVehicle.current_ignition ? '#16a34a' : '#ef4444', fontWeight: 700, padding: '2px 0' }}>
+                    {hoveredVehicle.current_ignition ? 'ON' : 'OFF'}
+                  </td>
+                  <td style={{ color: '#64748b', padding: '2px 0' }}>Max Speed (Kms)</td>
+                  <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                    {liveRouteMetrics[hoveredVehicle.id]?.maxSpeed !== undefined
+                      ? liveRouteMetrics[hoveredVehicle.id].maxSpeed
+                      : (hoveredVehicle.max_speed || (hoveredVehicle.current_speed ? Math.round(hoveredVehicle.current_speed) : 0))}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ color: '#64748b', padding: '2px 0' }}>Veh Battery</td>
+                  <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                    {formatVoltage(hoveredVehicle.current_voltage || hoveredVehicle.metadata?.batteryVoltage)}
+                  </td>
+                  <td style={{ color: '#64748b', padding: '2px 0' }}>Speed (Kms)</td>
+                  <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                    {Math.round(hoveredVehicle.is_online ? (hoveredVehicle.current_speed || 0) : 0)}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ color: '#64748b', padding: '2px 0' }}>Dev Battery</td>
+                  <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                    {(() => {
+                      const b = hoveredVehicle.current_battery ?? hoveredVehicle.battery ?? hoveredVehicle.metadata?.devBattery ?? hoveredVehicle.dev_battery ?? hoveredVehicle.device_battery;
+                      return b !== undefined && b !== null ? `${b}%` : 'N/A';
+                    })()}
+                  </td>
+                  <td style={{ color: '#64748b', padding: '2px 0' }}>Direction</td>
+                  <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                    {formatDirection(hoveredVehicle.current_direction)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Location Address */}
+            <div style={{
+              borderTop: '1px solid rgba(203, 213, 225, 0.8)',
+              paddingTop: '4px',
+              color: '#475569',
+              fontSize: '10px',
+              lineHeight: '1.4'
+            }}>
+              {hoveredVehicleAddress || (hoveredVehicle?.last_seen ? 'Location unavailable' : 'Never communicated')}
+            </div>
+          </div>
+        )}
 
         {/* Left Panel: Fleet Vehicles List (Docked seamlessly matching Image 2) */}
         {!isSidebarCollapsed && (
@@ -1325,217 +1352,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             </div>
           )}
 
-          {/* ── Selected Vehicle Floating HUD Card (Bottom-Left) ── */}
-          {currentSelected && (
-            <div style={{
-              position: 'absolute',
-              bottom: window.innerWidth > 768 ? '20px' : '75px',
-              left: window.innerWidth > 768 ? '20px' : '12px',
-              zIndex: 1000,
-              background: 'rgba(255, 255, 255, 0.98)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-              border: '1px solid #E2E8F0',
-              borderRadius: '14px',
-              padding: '12px 14px',
-              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.12)',
-              width: window.innerWidth > 768 ? '330px' : 'calc(100% - 24px)',
-              maxWidth: '360px',
-              fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
-            }}>
-              {/* Header: Name, Plate, Status pill & Close */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', gap: '8px' }}>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {currentSelected.plate || currentSelected.name}
-                  </div>
-                  {currentSelected.plate && currentSelected.name && currentSelected.name !== currentSelected.plate && (
-                    <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {currentSelected.name}
-                    </div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                  <span style={{
-                    fontSize: '9.5px',
-                    fontWeight: 700,
-                    padding: '2px 7px',
-                    borderRadius: '12px',
-                    background: `${statusColors[getStatus(currentSelected)]}18`,
-                    color: statusColors[getStatus(currentSelected)],
-                    border: `1px solid ${statusColors[getStatus(currentSelected)]}35`
-                  }}>
-                    {statusLabels[getStatus(currentSelected)]}
-                  </span>
-                  <button
-                    onClick={() => setSelectedVehicle(null)}
-                    style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', cursor: 'pointer', padding: '3px', color: '#64748B', display: 'flex' }}
-                    title="Deselect"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              </div>
 
-              {/* No GPS Fix Alert inside card if coordinates missing */}
-              {(!currentSelected.lat || !currentSelected.lng || isNaN(parseFloat(currentSelected.lat)) || parseFloat(currentSelected.lat) < 6.5) && (
-                <div style={{
-                  background: '#FEF3C7',
-                  border: '1px solid #FCD34D',
-                  borderRadius: '6px',
-                  padding: '5px 8px',
-                  marginBottom: '8px',
-                  fontSize: '10.5px',
-                  color: '#92400E',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
-                  <Info size={13} className="shrink-0 text-amber-600" />
-                  <span>No live GPS fix recorded. Device is offline or never connected.</span>
-                </div>
-              )}
-
-              {/* Metrics grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', padding: '7px 0', borderTop: '1px solid #F1F5F9', borderBottom: '1px solid #F1F5F9' }}>
-                <div style={{ background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #F1F5F9' }}>
-                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    <Activity size={10} /> Speed
-                  </div>
-                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', marginTop: '1px' }}>
-                    {formatSpeed(currentSelected.current_speed, currentSelected.is_online)}
-                  </div>
-                </div>
-                <div style={{ background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #F1F5F9' }}>
-                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    <Key size={10} /> Ignition
-                  </div>
-                  <div style={{ fontSize: '12px', fontWeight: 800, color: currentSelected.current_ignition ? '#16A34A' : '#EF4444', marginTop: '1px' }}>
-                    {currentSelected.current_ignition ? 'ON' : 'OFF'}
-                  </div>
-                </div>
-                <div style={{ background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #F1F5F9' }}>
-                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    <Navigation size={10} /> Today Dist
-                  </div>
-                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', marginTop: '1px' }}>
-                    {liveRouteMetrics[currentSelected.id]?.cDist !== undefined ? Number(liveRouteMetrics[currentSelected.id].cDist).toFixed(2) : (Number(currentSelected.today_distance) || 0).toFixed(2)} km
-                  </div>
-                </div>
-                <div style={{ background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #F1F5F9' }}>
-                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    <Battery size={10} /> Battery
-                  </div>
-                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', marginTop: '1px' }}>
-                    {formatVoltage(currentSelected.current_voltage || currentSelected.metadata?.batteryVoltage)}
-                  </div>
-                </div>
-              </div>
-
-              {/* FUEL METRICS */}
-              {hasVehicleFuelCapability(currentSelected) && (
-                <div style={{
-                  marginTop: '7px',
-                  padding: '7px 9px',
-                  borderRadius: '8px',
-                  background: '#F0F9FF',
-                  border: '1px solid #BAE6FD',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: '22px', height: '22px', borderRadius: '5px', background: '#0284C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Fuel size={13} color="#FFFFFF" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#0369A1', textTransform: 'uppercase' }}>Fuel Level</div>
-                      <div style={{ fontSize: '12px', fontWeight: 800, color: '#0C4A6E' }}>
-                        {currentSelected.current_fuel !== undefined && currentSelected.current_fuel !== null
-                          ? `${Math.round(Number(currentSelected.current_fuel))} L`
-                          : 'Monitoring'}
-                        {currentSelected.tank_capacity ? ` / ${currentSelected.tank_capacity} L` : ''}
-                      </div>
-                    </div>
-                  </div>
-                  {currentSelected.tank_capacity && currentSelected.current_fuel != null && (
-                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#0284C7', background: '#E0F2FE', padding: '1px 6px', borderRadius: '10px' }}>
-                      {Math.min(100, Math.round((Number(currentSelected.current_fuel) / Number(currentSelected.tank_capacity)) * 100))}%
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Action buttons */}
-              <div style={{ display: 'grid', gridTemplateColumns: hasVehicleFuelCapability(currentSelected) ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: '6px', marginTop: '8px' }}>
-                <button
-                  onClick={() => navigate(`/tracking?vehicle=${currentSelected.id}`)}
-                  style={{
-                    padding: '6px 8px',
-                    borderRadius: '7px',
-                    background: '#0F172A',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px'
-                  }}
-                  className="hover:opacity-90"
-                >
-                  <Navigation size={12} />
-                  <span>Live Track</span>
-                </button>
-                <button
-                  onClick={() => navigate(`/history?vehicle=${currentSelected.id}`)}
-                  style={{
-                    padding: '6px 8px',
-                    borderRadius: '7px',
-                    background: '#FFFFFF',
-                    color: '#334155',
-                    border: '1px solid #CBD5E1',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px'
-                  }}
-                  className="hover:bg-slate-50"
-                >
-                  <History size={12} />
-                  <span>Playback</span>
-                </button>
-                {hasVehicleFuelCapability(currentSelected) && (
-                  <button
-                    onClick={() => navigate(`/fuel-analytics?vehicle=${currentSelected.id}`)}
-                    style={{
-                      padding: '6px 8px',
-                      borderRadius: '7px',
-                      background: '#0284C7',
-                      color: '#FFFFFF',
-                      border: 'none',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px'
-                    }}
-                    className="hover:opacity-90"
-                  >
-                    <Activity size={12} />
-                    <span>Fuel</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Mobile Floating Button to switch back to List */}
           <div className="md:hidden" style={{ position: 'absolute', bottom: '16px', left: '16px', zIndex: 1000 }}>

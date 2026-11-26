@@ -28,6 +28,7 @@ import {
   Palette,
   Terminal,
   Droplets,
+  Gauge,
   Fuel,
   Database,
   X,
@@ -221,15 +222,13 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
     return () => window.removeEventListener('profile-updated', handleProfileUpdated);
   }, [user]);
 
-  // Check whether any vehicle has a fuel sensor or fuel monitoring
+  // Hardware sensor fuel capability (for Fuel Analytics)
+  // Physical hardware sensor fuel capability (Fuel Analytics only appears if fleet has physical sensors)
   const hasFuelFeature = useMemo(() => {
-    if (user?.role === 'superadmin' || user?.role === 'dealer') return true;
-    if (brandProfile?.has_fuel_vehicles === true) return true;
-    if (vehicles && vehicles.length > 0) {
-      return hasAnyFuelVehicle(vehicles);
-    }
+    if (hasAnyFuelVehicle(vehicles)) return true;
+    if (user?.role === 'superadmin') return true;
     return false;
-  }, [user, brandProfile, vehicles]);
+  }, [vehicles, user]);
 
   const navGroups = useMemo(() => [
     {
@@ -257,6 +256,18 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
         { name: 'Terminal', path: '/admin/terminal', icon: Terminal, color: '#0D9488', roles: ['superadmin', 'dealer'] },
         { name: 'Audit', path: '/admin/audit-logs', icon: ClipboardList, color: '#EA580C', roles: ['superadmin', 'dealer'] },
         { name: 'Archived Audit', path: '/admin/audit-logs?archived=true', icon: Archive, color: '#475569', roles: ['superadmin', 'dealer'] },
+        {
+          name: 'Non-Sensor Fuel',
+          path: '/fuel-overview',
+          icon: Gauge,
+          color: '#EA580C',
+          roles: ['superadmin', 'dealer', 'customer'],
+          subItems: [
+            { name: 'Fuel Overview', path: '/fuel-overview' },
+            { name: 'Fuel Graph', path: '/fuel-graph' },
+            { name: 'Fuel Entry', path: '/fuel-entry' }
+          ]
+        },
         ...(hasFuelFeature ? [{
           name: 'Fuel Analytics',
           path: '/fuel-analytics',
@@ -264,7 +275,6 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
           color: '#F97316',
           roles: ['superadmin', 'dealer', 'customer'],
           subItems: [
-            { name: 'Fuel Entry', path: '/fuel-entry' },
             { name: 'Analytics Chart', path: '/fuel-analytics' },
             { name: 'Fuel Raw Data', path: '/fuel-raw-data' }
           ]

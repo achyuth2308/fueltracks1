@@ -80,35 +80,51 @@ export const normalizeTierName = (tier) => {
 /**
  * Checks whether an individual vehicle has fuel monitoring hardware/capability configured.
  */
+/**
+ * Checks whether an individual vehicle has an actual physical hardware fuel sensor installed.
+ * Strictly separates physical hardware sensors from software-estimated Non-Sensor Fuel.
+ */
 export const hasVehicleFuelCapability = (v) => {
   if (!v) return false;
-  // 1. Explicit boolean flag if configured on vehicle
-  if (v.fuel_sensor === false || v.has_fuel_sensor === false) return false;
-  if (v.fuel_sensor === true || v.has_fuel_sensor === true) return true;
-
-  // 2. Tank capacity or calibrated fuel settings
-  const directCap = Number(v.tank_capacity);
-  if (!isNaN(directCap) && directCap > 0) return true;
-
   const meta = v.metadata || {};
+
+  // 1. Explicit boolean flag if configured on vehicle
+  if (v.fuel_sensor === false || v.has_fuel_sensor === false || meta.fuel_sensor === false || meta.has_fuel_sensor === false) {
+    return false;
+  }
+  if (v.fuel_sensor === true || v.has_fuel_sensor === true || meta.fuel_sensor === true || meta.has_fuel_sensor === true) {
+    return true;
+  }
+
+  // 2. Physical hardware sensor number (e.g. 'FS-1476')
+  if (meta.sensorNo && String(meta.sensorNo).trim() !== '' && String(meta.sensorNo).trim() !== '0') {
+    return true;
+  }
+
+  // 3. Physical hardware calibration table (multipoint rod/capacitive calibration)
+  const fuelCal = meta.fuelCalibration || meta.fuel || {};
+  if (fuelCal && typeof fuelCal === 'object' && Object.keys(fuelCal).length > 0) {
+    if (fuelCal.tanks || fuelCal.calibration || fuelCal.calibrationPoints) {
+      return true;
+    }
+  }
+
+  // 4. Physical tank size configured in device hardware metadata (only if not a non-sensor manual vehicle)
   const metaTank = parseFloat(meta.tankSize || meta.tank_size || meta.tankCapacity || 0);
-  if (!isNaN(metaTank) && metaTank > 0) return true;
-
-  if (meta.fuelCalibration && typeof meta.fuelCalibration === 'object' && Object.keys(meta.fuelCalibration).length > 0) {
+  if (!isNaN(metaTank) && metaTank > 0 && !v.manual_tank_capacity) {
     return true;
   }
 
-  // 3. Current live fuel telemetry
-  if (v.current_fuel !== undefined && v.current_fuel !== null && Number(v.current_fuel) > 0) {
-    return true;
-  }
-
-  // 4. Tier based detection (Advanced AD / Premium EN include fuel hardware)
+  // 5. Tier based detection for physical hardware (Advanced AD / Premium EN)
   const tier = getVehicleLicenseTier(v);
-  if (tier === 'Advanced' || tier === 'Premium') return true;
+  if ((tier === 'Advanced' || tier === 'Premium') && !v.manual_tank_capacity) {
+    return true;
+  }
 
   return false;
 };
+
+export const hasPhysicalFuelSensor = hasVehicleFuelCapability;
 
 /**
  * Checks whether a fleet of vehicles has ANY vehicle with fuel capability.

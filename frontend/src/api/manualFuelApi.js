@@ -29,3 +29,9 @@ export const getFuelEntries = async (vehicleId, params = {}) => {
   const response = await axiosInstance.get(`/api/fuel/manual/entries/${vehicleId}`, { params });
   return response.data;
 };
+
+export const getFuelChartData = async (vehicleId, params = {}) => {
+  const queryParams = typeof params === 'string' ? { range: params } : params;
+  const response = await axiosInstance.get(`/api/fuel/manual/chart/${vehicleId}`, { params: queryParams });
+  return response.data;
+};

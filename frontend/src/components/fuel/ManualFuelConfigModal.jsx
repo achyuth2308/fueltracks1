@@ -25,8 +25,8 @@ const ManualFuelConfigModal = ({ vehicle, onClose, onSaved }) => {
     setLoading(true);
     getVehicleFuelConfig(vId)
       .then(res => {
-        if (res?.success && res.config) {
-          const cfg = res.config;
+        if (res?.success && (res.config || res.data)) {
+          const cfg = res.config || res.data;
           setFormData({
             fuelType: cfg.fuel_type || 'Diesel',
             tankCapacity: cfg.tank_capacity || '',

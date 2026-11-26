@@ -842,8 +842,15 @@ export default function FuelAnalyticsPage() {
           // A stationary vehicle CANNOT drop > 35% of tank capacity in one step straight down to the calibration floor (<= minCalibratedLtr + 5).
           // If median suddenly collapses while previous fuel was high, it is a disconnected sensor! Hold lastEma!
           const isSuddenCollapse = (lastEma - median) > (tankCapacity * 0.35) && median <= (minCalibratedLtr + 5);
-          if (isSuddenCollapse) {
-            // Sensor disconnect artifact: hold lastEma
+
+          // Clamping Spike Guard:
+          // When stationary, an instantaneous 1-sample spike jumping straight to 100% tank capacity
+          // while previous baseline was far lower (< 70% tank capacity) is a sensor error/clamping glitch.
+          // Real refueling takes several minutes and rises progressively. Hold lastEma to reject the square-wave spike!
+          const isGlitchSpike = tankCapacity > 0 && lastEma < (tankCapacity * 0.70) && median >= (tankCapacity * 0.98);
+
+          if (isSuddenCollapse || isGlitchSpike) {
+            // Sensor disconnect or clamp glitch artifact: hold lastEma
           } else if (Math.abs(median - lastEma) >= 3.0) {
             lastEma = median;
           } else {
@@ -2312,91 +2319,9 @@ export default function FuelAnalyticsPage() {
               )}
             </div>
 
-            {/* Compact Mini-Pill Telematics Toggles */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              {/* Layer 1: All Fuel Data (Admin Diagnostic Only) */}
-              {showAdminDiagnostics && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllFuel(!showAllFuel)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer select-none ${
-                    showAllFuel
-                      ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 border border-slate-400/80 shadow-xs font-semibold'
-                      : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 border border-dashed border-slate-300 dark:border-slate-700/70'
-                  }`}
-                  title="Toggle Raw Unfiltered Sensor Fuel Telemetry"
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${showAllFuel ? 'bg-slate-600 dark:bg-slate-300' : 'bg-slate-400'}`} />
-                  <span>All Fuel</span>
-                </button>
-              )}
-
-              {/* Layer 2: Filtered Fuel Data */}
-              <button
-                type="button"
-                onClick={() => setShowFilteredFuel(!showFilteredFuel)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer select-none ${
-                  showFilteredFuel
-                    ? 'bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border border-sky-400 shadow-xs ring-1 ring-sky-500/20 font-semibold'
-                    : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 border border-dashed border-slate-300 dark:border-slate-700/70'
-                }`}
-                title="Toggle Anti-Slosh Smoothed Fuel Curve"
-              >
-                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${showFilteredFuel ? 'bg-sky-500' : 'bg-slate-400'}`} />
-                <span>Filtered Fuel</span>
-              </button>
-
-              {/* Layer 3: Normalize (Admin Diagnostic Only) */}
-              {showAdminDiagnostics && (
-                <button
-                  type="button"
-                  onClick={() => setShowNormalize(!showNormalize)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer select-none ${
-                    showNormalize
-                      ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-400 shadow-xs ring-1 ring-rose-500/20 font-semibold'
-                      : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 border border-dashed border-slate-300 dark:border-slate-700/70'
-                  }`}
-                  title="Toggle Monotonic Physical Reality Consumption Curve"
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${showNormalize ? 'bg-rose-500' : 'bg-slate-400'}`} />
-                  <span>Normalize</span>
-                </button>
-              )}
-
-              {/* Layer 4: Engine */}
-              <button
-                type="button"
-                onClick={() => setShowEngine(!showEngine)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer select-none ${
-                  showEngine
-                    ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-400 shadow-xs ring-1 ring-amber-500/20 font-semibold'
-                    : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 border border-dashed border-slate-300 dark:border-slate-700/70'
-                }`}
-                title="Toggle Engine Ignition Status"
-              >
-                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${showEngine ? 'bg-amber-500' : 'bg-slate-400'}`} />
-                <span>Engine</span>
-              </button>
-
-              {/* Layer 5: Speed */}
-              <button
-                type="button"
-                onClick={() => setShowSpeed(!showSpeed)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer select-none ${
-                  showSpeed
-                    ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-400 shadow-xs ring-1 ring-cyan-500/20 font-semibold'
-                    : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 border border-dashed border-slate-300 dark:border-slate-700/70'
-                }`}
-                title="Toggle Speed Secondary Axis"
-              >
-                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${showSpeed ? 'bg-cyan-500' : 'bg-slate-400'}`} />
-                <span>Speed</span>
-              </button>
-            </div>
-
-            {/* Telematics Visibility Toggles (Clean Pill Stack in Toolbar) */}
+            {/* Telematics Visibility Toggles (Clean Role-Based Pill Stack) */}
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {/* Layer 1: All Fuel Data (Admin Diagnostic Only) */}
+              {/* Admin Diagnostic Only: All Fuel Data */}
               {showAdminDiagnostics && (
                 <button
                   type="button"
@@ -2413,7 +2338,7 @@ export default function FuelAnalyticsPage() {
                 </button>
               )}
 
-              {/* Layer 2: Filtered Fuel Data */}
+              {/* Fuel / Filtered Fuel Data (Shown for all users) */}
               <button
                 type="button"
                 onClick={() => setShowFilteredFuel(!showFilteredFuel)}
@@ -2422,13 +2347,13 @@ export default function FuelAnalyticsPage() {
                     ? 'bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border border-sky-400 shadow-xs ring-1 ring-sky-500/20 font-semibold'
                     : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 border border-dashed border-slate-300 dark:border-slate-700/70'
                 }`}
-                title="Toggle Anti-Slosh Smoothed Fuel Curve"
+                title={showAdminDiagnostics ? "Toggle Anti-Slosh Smoothed Fuel Curve" : "Toggle Fuel Curve"}
               >
                 <span className={`w-2 h-2 rounded-full shrink-0 ${showFilteredFuel ? 'bg-sky-500' : 'bg-slate-400'}`} />
-                <span>Filtered Fuel Data</span>
+                <span>{showAdminDiagnostics ? 'Filtered Fuel Data' : 'Fuel'}</span>
               </button>
 
-              {/* Layer 3: Normalize (Admin Diagnostic Only) */}
+              {/* Admin Diagnostic Only: Normalize */}
               {showAdminDiagnostics && (
                 <button
                   type="button"
@@ -2445,7 +2370,7 @@ export default function FuelAnalyticsPage() {
                 </button>
               )}
 
-              {/* Layer 4: Engine */}
+              {/* Engine (Shown for all users) */}
               <button
                 type="button"
                 onClick={() => setShowEngine(!showEngine)}
@@ -2460,7 +2385,7 @@ export default function FuelAnalyticsPage() {
                 <span>Engine</span>
               </button>
 
-              {/* Layer 5: Speed */}
+              {/* Speed (Shown for all users) */}
               <button
                 type="button"
                 onClick={() => setShowSpeed(!showSpeed)}
@@ -2669,7 +2594,7 @@ export default function FuelAnalyticsPage() {
                                 <div className="flex items-center justify-between gap-4">
                                   <span className="text-sky-400 font-medium flex items-center gap-1.5">
                                     <span className="w-2 h-2 rounded-full bg-sky-500" />
-                                    Filter Fuel:
+                                    {showAdminDiagnostics ? 'Filter Fuel:' : 'Fuel:'}
                                   </span>
                                   <span className="font-bold text-sky-300 font-mono">
                                     {pt.filteredFuel != null ? `${pt.filteredFuel} Ltrs` : '—'}
@@ -2741,7 +2666,7 @@ export default function FuelAnalyticsPage() {
                           fill="url(#filteredFuelGradient)"
                           connectNulls={true}
                           dot={false}
-                          name="Filtered Fuel Data (L)"
+                          name={showAdminDiagnostics ? "Filtered Fuel Data (L)" : "Fuel (L)"}
                         />
                       )}
 

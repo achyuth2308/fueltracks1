@@ -2,7 +2,7 @@ const { Pool } = require('pg');
 const env = require('../config/env');
 const { uploadRawPacketsToS3, BUCKET_NAME } = require('../services/rawPacketArchiveService');
 
-const RETENTION_DAYS = parseInt(process.env.RAW_PACKETS_RETENTION_DAYS, 10) || 3;
+const RETENTION_DAYS = parseInt(process.env.RAW_PACKETS_RETENTION_DAYS, 10) || 2;
 const BATCH_SIZE = 5000;
 
 // Dedicated archival pool with statement_timeout = 0 (no timeout for heavy batch jobs)

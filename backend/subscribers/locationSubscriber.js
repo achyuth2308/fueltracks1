@@ -255,6 +255,13 @@ async function start(io) {
       const vehicleId = vehicle.id;
       const orgId = vehicle.org_id;
 
+      // 1a. Fetch previous state from Redis BEFORE processing new packet (for transition alerts & heartbeat guards)
+      const prevStateRaw = await redis.get(`vehicle:state:${imei}`);
+      let prevState = null;
+      if (prevStateRaw) {
+        try { prevState = JSON.parse(prevStateRaw); } catch (e) { }
+      }
+
       // 1b. Compute raw Engine ON state based on admin-configured preference
       const engineOnPref = vehicle.metadata?.engineOnStatus || vehicle.metadata?.engineOn || 'Ignition';
       const batteryThresh = parseFloat(vehicle.metadata?.vehicleVoltage || vehicle.metadata?.batteryVoltage) || 13.2;
@@ -284,76 +291,24 @@ async function start(io) {
         rawIgnition = ignition === true;
       }
 
-      // 1c. Ignition Debounce / Hysteresis Filter (3-Minute Window)
-      // Absorbs electrical dips (e.g. borewell pump engagement, starter surge, wire vibration)
-      // where engine drops to OFF for < 3 minutes before recovering to ON,
-      // or momentary electrical spikes where engine blips ON for < 3 minutes while parked.
-      const currentPacketTimeMs = new Date(deviceTime).getTime() || Date.now();
+      // Heartbeat Keep-Alive Guard:
+      // Heartbeats (0x13) only report internal battery & GSM keepalive, NOT the vehicle's ACC engine wire.
+      // A heartbeat packet must NEVER override an active Idle vehicle (ignition: true) to Parked (ignition: false).
+      if (data.isHeartbeat && !rawIgnition && prevState && prevState.ignition === true) {
+        rawIgnition = true;
+      }
+
+      // Clone Tracker Guard (e.g. EC33):
+      // If packet has null/undefined ignition, preserve confirmed prior ignition state rather than forcing Parked.
+      if (ignition == null && prevState && prevState.ignition !== undefined) {
+        rawIgnition = prevState.ignition;
+      }
+
+      // 1c. Direct Real-Time Engine State (No false fallback to parked)
+      // When device sends ignition ON, vehicle immediately transitions to ON (Idle if stopped, Moving if speed > 2).
+      const finalIgnition = rawIgnition;
       const stableIgnKey = `vehicle:stable_ignition:${vehicleId}`;
-      const pendingIgnKey = `vehicle:pending_ignition:${vehicleId}`;
-      const pendingSinceKey = `vehicle:pending_ignition_since:${vehicleId}`;
-
-      const stableIgnStr = await redis.get(stableIgnKey);
-      let finalIgnition = rawIgnition;
-
-      if (isMoving) {
-        // Physical movement > 5 km/h immediately confirms Engine is ON (0 delay when moving)
-        finalIgnition = true;
-        await redis.set(stableIgnKey, '1', 'EX', 86400 * 7);
-        await redis.del(pendingIgnKey);
-        await redis.del(pendingSinceKey);
-      } else if (stableIgnStr === null) {
-        // Initial setup for this vehicle — initialize stable state
-        finalIgnition = rawIgnition;
-        await redis.set(stableIgnKey, rawIgnition ? '1' : '0', 'EX', 86400 * 7);
-        await redis.del(pendingIgnKey);
-        await redis.del(pendingSinceKey);
-      } else {
-        const isStableOn = stableIgnStr === '1';
-
-        if (rawIgnition === isStableOn) {
-          // Packet matches current stable state — any temporary pending glitch is cancelled!
-          finalIgnition = isStableOn;
-          await redis.del(pendingIgnKey);
-          await redis.del(pendingSinceKey);
-        } else {
-          // Packet differs from stable state (e.g. currently ON, but packet says OFF; or currently OFF, but packet says ON)
-          const pendingTarget = rawIgnition ? '1' : '0';
-          const currentPending = await redis.get(pendingIgnKey);
-          const pendingSinceStr = await redis.get(pendingSinceKey);
-
-          if (currentPending !== pendingTarget || !pendingSinceStr) {
-            // New pending transition started — record start of candidate state change
-            await redis.set(pendingIgnKey, pendingTarget, 'EX', 600);
-            await redis.set(pendingSinceKey, String(currentPacketTimeMs), 'EX', 600);
-            // Retain previous stable state during the 3-minute grace window!
-            finalIgnition = isStableOn;
-          } else {
-            // Candidate transition in progress — check if it has persisted continuously for 3 minutes
-            const pendingSinceMs = parseInt(pendingSinceStr, 10);
-            const elapsedMs = currentPacketTimeMs - pendingSinceMs;
-            const DEBOUNCE_WINDOW_MS = 3 * 60 * 1000; // 3 minutes
-
-            if (elapsedMs >= DEBOUNCE_WINDOW_MS) {
-              // Transition CONFIRMED! Engine has remained in new state continuously for 3 minutes
-              finalIgnition = rawIgnition;
-              await redis.set(stableIgnKey, pendingTarget, 'EX', 86400 * 7);
-              await redis.del(pendingIgnKey);
-              await redis.del(pendingSinceKey);
-            } else {
-              // Still inside 3-minute grace window — absorb glitch and keep stable state!
-              finalIgnition = isStableOn;
-            }
-          }
-        }
-      }
-
-      // 2. Fetch previous state from Redis BEFORE processing new packet (for transition alerts)
-      const prevStateRaw = await redis.get(`vehicle:state:${imei}`);
-      let prevState = null;
-      if (prevStateRaw) {
-        try { prevState = JSON.parse(prevStateRaw); } catch (e) { }
-      }
+      await redis.set(stableIgnKey, finalIgnition ? '1' : '0', 'EX', 86400 * 7);
 
       // ============================================================
       // 2a. VALIDATE DEVICE TIMESTAMP & GPS JUMPS
@@ -497,6 +452,10 @@ async function start(io) {
             const rawScaled = (parseFloat(rawVal) * validMult) + validOffset;
             if (unit === 'Percentage' && cap > 0) {
               return Math.max(0, Math.min(cap, (rawScaled / 100) * cap));
+            }
+            // Defense-in-depth: if rawScaled is more than 2x tank capacity, reject as corrupt telemetry spike
+            if (cap > 0 && rawScaled > cap * 2.0) {
+              return null;
             }
             return Math.max(0, cap > 0 ? Math.min(cap, rawScaled) : rawScaled);
           } else if (sCalType === 'Manual' && Array.isArray(cfg.calibrationPoints) && cfg.calibrationPoints.length >= 2) {
@@ -937,19 +896,20 @@ async function start(io) {
         }
       }
 
-      // 5b. Active Trip Distance Accumulation
-      // If this vehicle has an in-progress user-defined trip, accumulate distance in Redis.
+      // 5b. Distance Accumulation & Manual Fuel Consumption Deduction
       if (isLive && lat && lng && prevState && prevState.lat && prevState.lng) {
         try {
-          const activeTripId = await redis.get(`vehicle:active_trip:${vehicleId}`);
-          if (activeTripId) {
-            const distKm = getHaversineDistance(
-              parseFloat(prevState.lat), parseFloat(prevState.lng),
-              parseFloat(lat), parseFloat(lng)
-            ) / 1000;
-            // Same jitter/teleport filters used everywhere else
-            if (distKm > 0.01 && distKm < 5) {
-              await redis.incrbyfloat(`trip:dist:${activeTripId}`, distKm);
+          const incDistKm = getHaversineDistance(
+            parseFloat(prevState.lat), parseFloat(prevState.lng),
+            parseFloat(lat), parseFloat(lng)
+          ) / 1000;
+
+          // Reliable incremental movement filter (between 5m and 5km per packet)
+          if (incDistKm > 0.005 && incDistKm < 5) {
+            // A. User active trip accumulation if vehicle has an ongoing trip
+            const activeTripId = await redis.get(`vehicle:active_trip:${vehicleId}`);
+            if (activeTripId) {
+              await redis.incrbyfloat(`trip:dist:${activeTripId}`, incDistKm);
               await redis.incr(`trip:pts:${activeTripId}`);
               const curMax = parseFloat(await redis.get(`trip:maxspd:${activeTripId}`) || '0');
               if ((speed || 0) > curMax) {
@@ -957,10 +917,17 @@ async function start(io) {
               }
               await redis.incrbyfloat(`trip:spdsum:${activeTripId}`, speed || 0);
             }
+
+            // B. Manual Fuel Monitoring Deduction (automatic estimation based on mileage)
+            // Deduct fuel when vehicle is moving or engine is on
+            if ((speed || 0) > 1 || finalIgnition === true) {
+              manualFuelService.deductGpsDistanceFuel(vehicleId, incDistKm, finalOdometer).catch(fuelErr => {
+                console.warn(`[MANUAL-FUEL] Failed GPS fuel deduction for vehicle ${vehicleId}:`, fuelErr.message);
+              });
+            }
           }
-        } catch (tripErr) {
-          // Non-critical — don't let trip accumulation crash the main location pipeline
-          console.error('[SUBSCRIBER] Trip accumulation error:', tripErr.message);
+        } catch (distErr) {
+          console.error('[SUBSCRIBER] Distance/Fuel accumulation error:', distErr.message);
         }
       }
 

@@ -349,7 +349,7 @@ const VEHICLE_MODELS = [
   'Other'
 ];
 
-// Device types in ascending order based on port numbers (5000 -> 5012)
+// Device types in ascending order based on port numbers (5000 -> 5013)
 const DEVICE_TYPE_OPTIONS = [
   { value: 'BSTPL', label: 'BSTPL - BSTPL-17 (5000)' },
   { value: 'AIS140', label: 'TrackNow - AIS140 (5001)' },
@@ -364,6 +364,7 @@ const DEVICE_TYPE_OPTIONS = [
   { value: 'BSTPL-17IS', label: 'BSTPL - BSTPL-17IS (5010)' },
   { value: 'VOLTYFUEL', label: 'TranSync - NAV 140 (5011)' },
   { value: 'APMK', label: 'APM - APM (5012)' },
+  { value: 'B20', label: 'B20 - OBD-II Diagnostics (5013)' },
 ];
 
 const DEVICE_MODELS = DEVICE_TYPE_OPTIONS;
@@ -371,6 +372,7 @@ const DEVICE_MODELS = DEVICE_TYPE_OPTIONS;
 const resolveDeviceModel = (raw) => {
   if (!raw) return '';
   const upper = String(raw).trim().toUpperCase();
+  if (upper.includes('B20') || upper.includes('5013')) return 'B20';
   if (upper.includes('VOLTYFUEL') || upper.includes('TRANSYNC') || upper.includes('NAV 140') || upper.includes('5011')) return 'VOLTYFUEL';
   if (upper.includes('VOLTY') || upper.includes('5004')) return 'VOLTY';
   if (upper.includes('AIS140 V2') || upper.includes('VAMO') || upper.includes('5003')) return 'AIS140 V2';
@@ -403,7 +405,8 @@ const DEVICE_MODEL_PORTS = {
   'BSTPL-17IS': '5010',
   'VOLTYFUEL': '5011',
   'APMK': '5012',
-  'APM': '5012'
+  'APM': '5012',
+  'B20': '5013'
 };
 
 const getDevicePort = (model) => {

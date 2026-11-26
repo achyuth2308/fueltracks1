@@ -128,11 +128,35 @@ const ManualFuelEntryModal = ({
   // Effective Calculations
   const effectiveTankCapacity = fuelConfig ? Number(fuelConfig.tank_capacity) : Number(customTankCapacity || 0);
   const prevFuel = fuelState ? Number(fuelState.current_fuel) : 0;
-  const currentMileage = fuelState?.current_mileage ? Number(fuelState.current_mileage) : (fuelConfig ? Number(fuelConfig.initial_mileage) : Number(customMileage || 4.5));
+  const currentMileage = fuelConfig?.initial_mileage ? Number(fuelConfig.initial_mileage) : (fuelState?.current_mileage ? Number(fuelState.current_mileage) : Number(customMileage || 8.0));
 
-  // Live estimated new fuel
+  // Baseline odometer for selected vehicle before user's trip input
+  const baseOdometer = useMemo(() => {
+    return Number(fuelState?.last_known_odometer || fuelConfig?.initial_odometer || activeVehicle?.odometer || 0);
+  }, [fuelState, fuelConfig, activeVehicle]);
+
+  // Incremental distance driven based on user's odometer input
+  const inputOdometer = parseFloat(odometer);
+  const incrementalDistance = useMemo(() => {
+    if (!isNaN(inputOdometer) && baseOdometer > 0 && inputOdometer > baseOdometer) {
+      return Math.round((inputOdometer - baseOdometer) * 10) / 10;
+    }
+    return 0;
+  }, [inputOdometer, baseOdometer]);
+
+  // Fuel consumed for the incremental distance
+  const incrementalFuelConsumed = useMemo(() => {
+    if (incrementalDistance > 0 && currentMileage > 0) {
+      return Math.round((incrementalDistance / currentMileage) * 10) / 10;
+    }
+    return 0;
+  }, [incrementalDistance, currentMileage]);
+
+  // Live estimated new fuel: accounts for distance driven AND refilled fuel
   const calculatedNewFuel = useMemo(() => {
     const cap = effectiveTankCapacity > 0 ? effectiveTankCapacity : 9999;
+    const fuelAfterTrip = Math.max(0, Math.round((prevFuel - incrementalFuelConsumed) * 10) / 10);
+
     if (entryType === 'INITIAL') {
       const q = parseFloat(currentTankFuel);
       return isNaN(q) ? 0 : Math.min(q, cap);
@@ -142,14 +166,14 @@ const ManualFuelEntryModal = ({
       if (currentTankFuel && !isNaN(parseFloat(currentTankFuel))) {
         return Math.min(parseFloat(currentTankFuel), cap);
       }
-      return Math.min(prevFuel + filled, cap);
+      return Math.min(cap, Math.round((fuelAfterTrip + filled) * 10) / 10);
     }
     if (entryType === 'RECONCILIATION') {
       const actual = parseFloat(currentTankFuel);
-      return isNaN(actual) ? prevFuel : Math.min(actual, cap);
+      return isNaN(actual) ? fuelAfterTrip : Math.min(actual, cap);
     }
-    return prevFuel;
-  }, [entryType, fuelFilled, currentTankFuel, prevFuel, effectiveTankCapacity]);
+    return fuelAfterTrip;
+  }, [entryType, fuelFilled, currentTankFuel, prevFuel, incrementalFuelConsumed, effectiveTankCapacity]);
 
   const fuelFillPercentage = effectiveTankCapacity > 0 ? Math.min(100, Math.max(0, (calculatedNewFuel / effectiveTankCapacity) * 100)) : 0;
   const estimatedRange = Math.round(calculatedNewFuel * currentMileage);

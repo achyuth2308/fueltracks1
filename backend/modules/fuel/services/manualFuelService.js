@@ -59,6 +59,21 @@ class ManualFuelService {
     try {
       await client.query('BEGIN');
 
+      // Verify or resolve valid organization UUID
+      let validOrgId = (orgId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)) ? orgId : null;
+      if (validOrgId) {
+        const orgCheck = await client.query('SELECT id FROM organizations WHERE id = $1', [validOrgId]);
+        if (orgCheck.rows.length === 0) validOrgId = null;
+      }
+      if (!validOrgId) {
+        const vOrg = await client.query('SELECT org_id FROM vehicles WHERE id = $1', [vehicleId]);
+        const candidateOrg = vOrg.rows[0]?.org_id;
+        if (candidateOrg && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateOrg)) {
+          const orgCheck2 = await client.query('SELECT id FROM organizations WHERE id = $1', [candidateOrg]);
+          if (orgCheck2.rows.length > 0) validOrgId = candidateOrg;
+        }
+      }
+
       const configRes = await client.query(
         `INSERT INTO vehicle_fuel_configs
            (vehicle_id, org_id, fuel_type, tank_capacity, initial_fuel,
@@ -66,6 +81,7 @@ class ManualFuelService {
             low_fuel_alert_threshold, critical_fuel_alert_threshold, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
          ON CONFLICT (vehicle_id) DO UPDATE SET
+           org_id = COALESCE(EXCLUDED.org_id, vehicle_fuel_configs.org_id),
            fuel_type = EXCLUDED.fuel_type,
            tank_capacity = EXCLUDED.tank_capacity,
            initial_fuel = EXCLUDED.initial_fuel,
@@ -78,7 +94,7 @@ class ManualFuelService {
          RETURNING *`,
         [
           vehicleId,
-          orgId,
+          validOrgId,
           fuelType,
           tankCapacity,
           initialFuel,
@@ -98,8 +114,9 @@ class ManualFuelService {
         [vehicleId]
       );
 
+      const fixedMileage = Number(initialMileage || 8.0);
       if (stateRes.rows.length === 0) {
-        const estRange = Math.round(Number(initialFuel) * Number(initialMileage));
+        const estRange = Math.round(Number(initialFuel) * fixedMileage);
         const status = ManualFuelService.determineFuelStatus(initialFuel, config);
 
         await client.query(
@@ -108,9 +125,32 @@ class ManualFuelService {
               total_fuel_consumed, total_fuel_refilled, estimated_range_km,
               last_known_odometer, fuel_status, updated_at)
            VALUES ($1, $2, $3, 0, 0, 0, $4, $5, $6, NOW())`,
-          [vehicleId, initialFuel, initialMileage, estRange, initialOdometer, status]
+          [vehicleId, initialFuel, fixedMileage, estRange, initialOdometer, status]
+        );
+      } else {
+        // Vehicle state already exists: update to the FIXED user-configured mileage and recompute range
+        const curFuel = Number(stateRes.rows[0].current_fuel);
+        const estRange = Math.round(curFuel * fixedMileage);
+        await client.query(
+          `UPDATE vehicle_fuel_states SET
+             current_mileage = $1,
+             estimated_range_km = $2,
+             updated_at = NOW()
+           WHERE vehicle_id = $3`,
+          [fixedMileage, estRange, vehicleId]
         );
       }
+
+      // Update vehicles.metadata safely with tankSize and manualTankCapacity
+      await client.query(
+        `UPDATE vehicles 
+         SET metadata = jsonb_set(
+           jsonb_set(COALESCE(metadata, '{}'::jsonb), '{manualTankCapacity}', to_jsonb($1::text), true),
+           '{tankSize}', to_jsonb($1::text), true
+         )
+         WHERE id = $2`,
+        [String(tankCapacity), vehicleId]
+      );
 
       await client.query('COMMIT');
       return config;
@@ -199,9 +239,12 @@ class ManualFuelService {
         fuelDifference = 0;
       } else if (entryType === 'REFILL') {
         // Driver refilled fuelFilled litres.
-        // If driver also provided actual tank level (fuelQuantity), use that as the reconciled ground truth!
-        if (numFuelQty > 0 && Math.abs(numFuelQty - (prevEstFuel + numFuelFilled)) > 0.1) {
-          newFuel = numFuelQty;
+        // If driver provided a fuel level less than fuelFilled, they entered pre-refill fuel!
+        if (numFuelQty > 0 && numFuelQty < numFuelFilled) {
+          newFuel = Math.min(tankCap, Math.round((numFuelQty + numFuelFilled) * 100) / 100);
+          fuelDifference = 0;
+        } else if (numFuelQty > 0) {
+          newFuel = Math.min(tankCap, numFuelQty);
           fuelDifference = Math.round((numFuelQty - (prevEstFuel + numFuelFilled)) * 100) / 100;
         } else {
           newFuel = Math.min(tankCap, Math.round((prevEstFuel + numFuelFilled) * 100) / 100);
@@ -215,7 +258,21 @@ class ManualFuelService {
 
       // 1. Audit trail: insert into manual_fuel_entries
       const rawDriverId = driverUser?.userId || driverUser?.id || null;
-      const driverId = (rawDriverId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawDriverId)) ? rawDriverId : null;
+      let driverId = (rawDriverId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawDriverId)) ? rawDriverId : null;
+      if (driverId) {
+        const userCheck = await client.query('SELECT id FROM users WHERE id = $1', [driverId]);
+        if (userCheck.rows.length === 0) {
+          driverId = null;
+        }
+      }
+
+      let entryOrgId = (config.org_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(config.org_id)) ? config.org_id : null;
+      if (entryOrgId) {
+        const orgCheck = await client.query('SELECT id FROM organizations WHERE id = $1', [entryOrgId]);
+        if (orgCheck.rows.length === 0) {
+          entryOrgId = null;
+        }
+      }
 
       const customEntryTime = (entryDate && !isNaN(new Date(entryDate).getTime())) ? new Date(entryDate) : new Date();
 
@@ -228,7 +285,7 @@ class ManualFuelService {
          RETURNING *`,
         [
           vehicleId,
-          config.org_id,
+          entryOrgId,
           driverId,
           driverUser?.name || 'Driver / Admin',
           entryType,
@@ -245,7 +302,7 @@ class ManualFuelService {
       const entryRecord = insertEntryRes.rows[0];
 
       // 2. Mileage learning: calculate actual mileage between consecutive verified entries
-      let updatedMileage = currentState ? Number(currentState.current_mileage) : Number(config.initial_mileage);
+      let updatedMileage = Number(config.initial_mileage || (currentState ? currentState.current_mileage : 8.0));
 
       if (entryType === 'REFILL' || entryType === 'RECONCILIATION') {
         const lastEntryRes = await client.query(
@@ -304,6 +361,8 @@ class ManualFuelService {
          ON CONFLICT (vehicle_id) DO UPDATE SET
            current_fuel = $2,
            current_mileage = $3,
+           total_distance_travelled = CASE WHEN $9 = 'INITIAL' OR $9 = 'REFILL' THEN 0 ELSE vehicle_fuel_states.total_distance_travelled END,
+           total_fuel_consumed = CASE WHEN $9 = 'INITIAL' OR $9 = 'REFILL' THEN 0 ELSE vehicle_fuel_states.total_fuel_consumed END,
            total_fuel_refilled = vehicle_fuel_states.total_fuel_refilled + $4,
            estimated_range_km = $5,
            last_known_odometer = $6,
@@ -320,7 +379,16 @@ class ManualFuelService {
           numOdo,
           addedRefill > 0 ? new Date() : null,
           status,
+          entryType,
         ]
+      );
+
+      // 3b. Sync vehicle_latest_state.fuel so dashboard & live maps see it immediately
+      await client.query(
+        `INSERT INTO vehicle_latest_state (vehicle_id, fuel, last_seen)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (vehicle_id) DO UPDATE SET fuel = $2`,
+        [vehicleId, newFuel]
       );
 
       await client.query('COMMIT');
@@ -398,8 +466,8 @@ class ManualFuelService {
       const dist = Number(distanceKm);
 
       // Fuel Consumed = Distance Travelled / Average Mileage
-      const fuelConsumed = Math.round((dist / mileage) * 1000) / 1000;
-      const fuelAfter = Math.max(0, Math.round((fuelBefore - fuelConsumed) * 100) / 100);
+      const fuelConsumed = Math.round((dist / mileage) * 10000) / 10000;
+      const fuelAfter = Math.max(0, Math.round((fuelBefore - fuelConsumed) * 10000) / 10000);
       const estRange = Math.round(fuelAfter * mileage);
       const status = ManualFuelService.determineFuelStatus(fuelAfter, state);
 
@@ -415,6 +483,12 @@ class ManualFuelService {
            updated_at = NOW()
          WHERE vehicle_id = $7`,
         [fuelAfter, dist, fuelConsumed, estRange, currentOdometer || null, status, vehicleId]
+      );
+
+      // 1b. Sync vehicle_latest_state.fuel
+      await client.query(
+        `UPDATE vehicle_latest_state SET fuel = $1 WHERE vehicle_id = $2`,
+        [fuelAfter, vehicleId]
       );
 
       // 2. Log consumption transaction
@@ -535,13 +609,416 @@ class ManualFuelService {
   }
 
   /**
+   * Get Fuel Trend & Mileage Graph data for a vehicle
+   */
+  async getFuelChartData(vehicleId, options = '30d') {
+    let range = null;
+    let startDate = null;
+    let endDate = null;
+
+    if (typeof options === 'string') {
+      range = options;
+    } else if (options && typeof options === 'object') {
+      range = options.range;
+      startDate = options.startDate || options.from;
+      endDate = options.endDate || options.to;
+    }
+
+    const config = await this.getVehicleFuelConfig(vehicleId);
+    const state = await this.getVehicleFuelState(vehicleId);
+
+    let startIso = null;
+    let endIso = null;
+    if (startDate) {
+      const s = new Date(startDate);
+      if (!isNaN(s.getTime())) startIso = s.toISOString();
+    }
+    if (endDate) {
+      const e = new Date(endDate);
+      if (!isNaN(e.getTime())) endIso = e.toISOString();
+    }
+
+    let intervalClause = '';
+    const queryParams = [vehicleId];
+
+    if (startIso && endIso) {
+      queryParams.push(startIso, endIso);
+      intervalClause = `AND entry_time >= $2 AND entry_time <= $3`;
+    } else if (startIso) {
+      queryParams.push(startIso);
+      intervalClause = `AND entry_time >= $2`;
+    } else if (range === '7d') {
+      intervalClause = "AND entry_time >= NOW() - INTERVAL '7 days'";
+    } else if (range === '90d') {
+      intervalClause = "AND entry_time >= NOW() - INTERVAL '90 days'";
+    } else {
+      intervalClause = "AND entry_time >= NOW() - INTERVAL '30 days'";
+    }
+
+    const entriesRes = await db.query(
+      `SELECT * FROM manual_fuel_entries
+       WHERE vehicle_id = $1 ${intervalClause}
+       ORDER BY entry_time ASC`,
+      queryParams
+    );
+
+    // Baseline entry prior to the window (if custom start date is specified)
+    let baselineEntry = null;
+    if (startIso) {
+      const priorRes = await db.query(
+        `SELECT * FROM manual_fuel_entries
+         WHERE vehicle_id = $1 AND entry_time < $2
+         ORDER BY entry_time DESC LIMIT 1`,
+        [vehicleId, startIso]
+      );
+      if (priorRes.rows.length > 0) {
+        baselineEntry = priorRes.rows[0];
+      }
+    }
+
+    // Query GPS consumption logs for the selected window
+    let logsClause = '';
+    const logsParams = [vehicleId];
+    if (startIso && endIso) {
+      logsParams.push(startIso, endIso);
+      logsClause = `AND created_at >= $2 AND created_at <= $3`;
+    } else if (startIso) {
+      logsParams.push(startIso);
+      logsClause = `AND created_at >= $2`;
+    } else if (range === '7d') {
+      logsClause = "AND created_at >= NOW() - INTERVAL '7 days'";
+    } else if (range === '90d') {
+      logsClause = "AND created_at >= NOW() - INTERVAL '90 days'";
+    } else {
+      logsClause = "AND created_at >= NOW() - INTERVAL '30 days'";
+    }
+
+    const logsRes = await db.query(
+      `SELECT distance_km, fuel_consumed, fuel_before, fuel_after, end_odometer, created_at
+       FROM fuel_consumption_logs
+       WHERE vehicle_id = $1 ${logsClause}
+       ORDER BY created_at ASC`,
+      logsParams
+    );
+
+    // Query fuel theft alerts for the selected window
+    let alertsClause = '';
+    const alertsParams = [vehicleId];
+    if (startIso && endIso) {
+      alertsParams.push(startIso, endIso);
+      alertsClause = `AND server_time >= $2 AND server_time <= $3`;
+    } else if (startIso) {
+      alertsParams.push(startIso);
+      alertsClause = `AND server_time >= $2`;
+    } else if (range === '7d') {
+      alertsClause = "AND server_time >= NOW() - INTERVAL '7 days'";
+    } else if (range === '90d') {
+      alertsClause = "AND server_time >= NOW() - INTERVAL '90 days'";
+    } else {
+      alertsClause = "AND server_time >= NOW() - INTERVAL '30 days'";
+    }
+
+    let alertsRes = { rows: [] };
+    try {
+      alertsRes = await db.query(
+        `SELECT id, alert_type, alert_text, server_time
+         FROM alerts
+         WHERE vehicle_id = $1 AND alert_type IN ('fuel_theft', 'theft') ${alertsClause}
+         ORDER BY server_time ASC`,
+        alertsParams
+      );
+    } catch (alertErr) {
+      // alerts table optional fallback
+    }
+
+    const mileageRes = await db.query(
+      `SELECT * FROM vehicle_mileage_history
+       WHERE vehicle_id = $1
+       ORDER BY created_at ASC`,
+      [vehicleId]
+    );
+
+    const timeline = [];
+    const refillEvents = [];
+    const theftEvents = [];
+
+    // Prepend baseline entry if earlier than first entry in range
+    if (baselineEntry && (entriesRes.rows.length === 0 || new Date(entriesRes.rows[0].entry_time).getTime() > new Date(startIso).getTime())) {
+      const d = new Date(baselineEntry.entry_time);
+      timeline.push({
+        timestamp: baselineEntry.entry_time,
+        date: isNaN(d.getTime()) ? 'Baseline' : d.toLocaleDateString('en-IN', {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        fuelLevel: Number(baselineEntry.fuel_quantity),
+        fuelFilled: Number(baselineEntry.fuel_filled || 0),
+        odometer: Number(baselineEntry.odometer || 0),
+        entryType: baselineEntry.entry_type,
+        remarks: 'Baseline before selected range',
+        driverName: baselineEntry.driver_name || 'Driver',
+        isRefill: false,
+        isTheft: false,
+        isInitial: baselineEntry.entry_type === 'INITIAL',
+      });
+    }
+
+    // Add manual refill, level check & audit entries
+    entriesRes.rows.forEach((e) => {
+      const d = new Date(e.entry_time);
+      const isRefill = e.entry_type === 'REFILL';
+      const isTheft = (e.entry_type === 'LEVEL_CHECK' || e.entry_type === 'RECONCILIATION') && Number(e.fuel_difference || 0) <= -2;
+      const timeFormatted = isNaN(d.getTime()) ? 'Entry' : d.toLocaleDateString('en-IN', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      if (isRefill) {
+        let fuelBefore = Number(e.estimated_fuel_before || 0);
+        let fuelAfter = Number(e.fuel_quantity || 0);
+        const refilled = Number(e.fuel_filled || 0);
+
+        // Recalculate if fuelAfter <= refilled (anomaly where pre-refill fuel was recorded)
+        if (fuelAfter <= refilled) {
+          fuelAfter = Math.min(config ? Number(config.tank_capacity) : 100, fuelBefore + refilled);
+        }
+
+        refillEvents.push({
+          time: e.entry_time,
+          formattedTime: timeFormatted,
+          liters: refilled,
+          fuelBefore: fuelBefore,
+          fuelAfter: fuelAfter,
+          driverName: e.driver_name || 'Driver',
+          remarks: e.remarks || 'Fuel Refill Entry'
+        });
+
+        // 1. Point immediately prior to refill (shows baseline before pump)
+        const preTime = new Date(d.getTime() - 2000);
+        timeline.push({
+          timestamp: preTime.toISOString(),
+          date: timeFormatted,
+          fuelLevel: fuelBefore,
+          fuelFilled: 0,
+          odometer: Number(e.odometer || 0),
+          entryType: 'PRE_REFILL',
+          remarks: 'Before Refill',
+          driverName: e.driver_name || 'Driver',
+          isRefill: false,
+          isTheft: false,
+          isInitial: false,
+        });
+
+        // 2. Refill peak point (shows the jump from +L fuel)
+        timeline.push({
+          timestamp: e.entry_time,
+          date: timeFormatted,
+          fuelLevel: fuelAfter,
+          fuelFilled: refilled,
+          odometer: Number(e.odometer || 0),
+          entryType: e.entry_type,
+          remarks: e.remarks || '',
+          driverName: e.driver_name || 'Driver',
+          isRefill: true,
+          refillLiters: refilled,
+          refillEvent: {
+            liters: refilled,
+            startTime: timeFormatted,
+            startFuel: fuelBefore,
+            endFuel: fuelAfter,
+            driverName: e.driver_name || 'Driver',
+            remarks: e.remarks || 'Fuel Refill Entry'
+          },
+          isTheft: false,
+          isInitial: false,
+        });
+        return;
+      }
+
+      if (isTheft) {
+        const drop = Math.abs(Number(e.fuel_difference || 0));
+        theftEvents.push({
+          time: e.entry_time,
+          formattedTime: timeFormatted,
+          liters: drop,
+          fuelBefore: Number(e.estimated_fuel_before || 0),
+          fuelAfter: Number(e.fuel_quantity || 0),
+          driverName: e.driver_name || 'Driver',
+          remarks: e.remarks || 'Unaccounted fuel drop during level check'
+        });
+      }
+
+      timeline.push({
+        timestamp: e.entry_time,
+        date: timeFormatted,
+        fuelLevel: Number(e.fuel_quantity),
+        fuelFilled: Number(e.fuel_filled || 0),
+        odometer: Number(e.odometer || 0),
+        entryType: e.entry_type,
+        remarks: e.remarks || '',
+        driverName: e.driver_name || 'Driver',
+        isRefill: false,
+        refillLiters: 0,
+        refillEvent: null,
+        isTheft,
+        theftLiters: isTheft ? Math.abs(Number(e.fuel_difference || 0)) : 0,
+        theftEvent: isTheft ? {
+          liters: Math.abs(Number(e.fuel_difference || 0)),
+          startTime: timeFormatted,
+          startFuel: Number(e.estimated_fuel_before || 0),
+          endFuel: Number(e.fuel_quantity || 0),
+          driverName: e.driver_name || 'Driver',
+          remarks: e.remarks || 'Unaccounted fuel drop during level check'
+        } : null,
+        isInitial: e.entry_type === 'INITIAL',
+      });
+    });
+
+    // Add alert records if any
+    alertsRes.rows.forEach(a => {
+      const d = new Date(a.server_time);
+      const timeFormatted = isNaN(d.getTime()) ? 'Alert' : d.toLocaleDateString('en-IN', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const dropLiters = 5.0;
+      theftEvents.push({
+        time: a.server_time,
+        formattedTime: timeFormatted,
+        liters: dropLiters,
+        fuelBefore: 0,
+        fuelAfter: 0,
+        remarks: a.alert_text || 'Fuel Theft Alert'
+      });
+      timeline.push({
+        timestamp: a.server_time,
+        date: timeFormatted,
+        fuelLevel: 0,
+        fuelFilled: 0,
+        odometer: 0,
+        entryType: 'THEFT_ALERT',
+        remarks: a.alert_text || 'Theft Alert',
+        driverName: 'Security Siren',
+        isRefill: false,
+        isTheft: true,
+        theftLiters: dropLiters,
+        theftEvent: {
+          liters: dropLiters,
+          startTime: timeFormatted,
+          startFuel: 0,
+          endFuel: 0,
+          remarks: a.alert_text || 'Stationary fuel theft alert'
+        },
+        isInitial: false,
+      });
+    });
+
+    // Sample GPS consumption logs (max 100 points for smooth Recharts rendering)
+    const logs = logsRes.rows;
+    if (logs.length > 0) {
+      const maxSample = 100;
+      const step = logs.length > maxSample ? Math.ceil(logs.length / maxSample) : 1;
+      for (let i = 0; i < logs.length; i += step) {
+        const l = logs[i];
+        const d = new Date(l.created_at);
+        timeline.push({
+          timestamp: l.created_at,
+          date: isNaN(d.getTime()) ? 'GPS' : d.toLocaleDateString('en-IN', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          fuelLevel: Math.round(Number(l.fuel_after) * 10) / 10,
+          fuelFilled: 0,
+          odometer: Number(l.end_odometer || 0),
+          entryType: 'GPS_DEPLETION',
+          remarks: `GPS Move: -${Number(l.fuel_consumed).toFixed(2)}L (${Number(l.distance_km).toFixed(1)} km)`,
+          driverName: 'GPS Telemetry',
+          isRefill: false,
+          isTheft: false,
+          isInitial: false,
+        });
+      }
+    }
+
+    // Add current live estimate if window includes now
+    const now = new Date();
+    const isWindowLive = !endIso || new Date(endIso).getTime() >= (now.getTime() - 15 * 60 * 1000);
+    if (state && isWindowLive) {
+      const curFuel = Number(state.current_fuel);
+      timeline.push({
+        timestamp: now.toISOString(),
+        date: 'Now (Live)',
+        fuelLevel: Math.round(curFuel * 10) / 10,
+        fuelFilled: 0,
+        odometer: Number(state.last_known_odometer || 0),
+        entryType: 'CURRENT_ESTIMATE',
+        remarks: 'Live Telemetry Estimate',
+        driverName: 'System GPS',
+        isRefill: false,
+        isTheft: false,
+        isInitial: false,
+      });
+    }
+
+    // Sort timeline chronologically
+    timeline.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    // Window aggregations
+    const windowDistance = logs.reduce((sum, r) => sum + Number(r.distance_km || 0), 0);
+    const windowFuelConsumed = logs.reduce((sum, r) => sum + Number(r.fuel_consumed || 0), 0);
+    const totalRefillLiters = refillEvents.reduce((acc, r) => acc + (r.liters || 0), 0);
+    const totalTheftLiters = theftEvents.reduce((acc, t) => acc + (t.liters || 0), 0);
+
+    return {
+      vehicleId,
+      tankCapacity: config ? Number(config.tank_capacity) : 100,
+      lowFuelThreshold: config ? Number(config.low_fuel_alert_threshold || 15) : 15,
+      criticalThreshold: config ? Number(config.critical_fuel_alert_threshold || 8) : 8,
+      currentFuel: state ? Number(state.current_fuel) : 0,
+      currentMileage: state ? Number(state.current_mileage) : (config ? Number(config.initial_mileage) : 4.5),
+      totalDistance: Math.round((windowDistance > 0 ? windowDistance : (state ? Number(state.total_distance_travelled) : 0)) * 10) / 10,
+      totalFuelConsumed: Math.round((windowFuelConsumed > 0 ? windowFuelConsumed : (state ? Number(state.total_fuel_consumed) : 0)) * 10) / 10,
+      totalFuelRefilled: Math.round(totalRefillLiters * 10) / 10,
+      refillCount: refillEvents.length,
+      refills: refillEvents,
+      totalFuelTheft: Math.round(totalTheftLiters * 10) / 10,
+      theftCount: theftEvents.length,
+      thefts: theftEvents,
+      timeline,
+      mileageHistory: mileageRes.rows.map(m => ({
+        date: new Date(m.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
+        calculatedMileage: Number(m.calculated_mileage),
+        rollingAverage: Number(m.rolling_average_mileage),
+        distance: Number(m.distance_travelled),
+        fuelConsumed: Number(m.actual_fuel_consumed),
+      })),
+    };
+  }
+
+  /**
    * Fleet Fuel Overview Dashboard Summary
    */
   async getFleetFuelOverview(orgId, role, userId) {
     let whereClause = 'v.is_active = TRUE';
     const params = [];
 
-    if (role !== 'superadmin' && orgId) {
+    if (role === 'customer' && userId) {
+      params.push(userId);
+      whereClause += ` AND v.id IN (
+        SELECT vg.vehicle_id 
+        FROM vehicle_groups vg
+        JOIN user_groups ug ON vg.group_id = ug.group_id
+        WHERE ug.user_id = $${params.length}
+      )`;
+    } else if (role !== 'superadmin' && orgId) {
       params.push(orgId);
       whereClause += ` AND (o.id = $${params.length} OR o.parent_id = $${params.length})`;
     }

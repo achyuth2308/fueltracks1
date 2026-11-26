@@ -528,6 +528,14 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
                   - {liveRouteMetrics[vehicle.id]?.cDist !== undefined ? Number(liveRouteMetrics[vehicle.id].cDist).toFixed(2) : (Number(vehicle.today_distance) || 0).toFixed(2)} kms
                 </td>
               </tr>
+              {vehicle.current_fuel !== undefined && vehicle.current_fuel !== null && Number(vehicle.current_fuel) > 0 && (
+                <tr>
+                  <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Estimated Fuel</td>
+                  <td style={{ color: '#0284c7', fontWeight: 700, padding: '2px 0' }}>
+                    - {Math.round(Number(vehicle.current_fuel))} L {vehicle.tank_capacity ? `(${Math.min(100, Math.round((Number(vehicle.current_fuel) / Number(vehicle.tank_capacity)) * 100))}%)` : ''}
+                  </td>
+                </tr>
+              )}
               {getNoDataDuration(vehicle.last_seen) && (status === 'offline' || status === 'nodata') ? (
                 <>
                   <tr>
@@ -604,6 +612,13 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
               style={{ color: '#0284c7', textDecoration: 'none', cursor: 'pointer' }}
             >
               Details
+            </a>
+            <a
+              href="/fuel-entry"
+              onClick={(e) => { e.preventDefault(); navigate('/fuel-entry'); }}
+              style={{ color: '#ea580c', textDecoration: 'none', cursor: 'pointer' }}
+            >
+              Fuel
             </a>
           </div>
         </div>
@@ -734,7 +749,7 @@ const FitAllBoundsButton = ({ vehicles }) => {
   };
 
   return (
-    <div style={{ position: 'absolute', bottom: '24px', right: '12px', zIndex: 1000 }}>
+    <div style={{ position: 'absolute', bottom: '44px', right: '12px', zIndex: 1000 }}>
       <button
         onClick={handleFit}
         type="button"
