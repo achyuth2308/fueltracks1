@@ -308,33 +308,39 @@ const ReportsAdminPage = () => {
           onClick={() => {
             if (isFuelTab) {
               navigate('/admin/reports/distance');
+            } else if (location.pathname === '/admin/reports/dashboard') {
+              navigate('/dashboard');
             } else {
-              navigate(-1);
+              navigate('/admin/reports/dashboard');
             }
           }}
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: isFuelTab ? '5px' : '0',
-            padding: isFuelTab ? '0 10px' : '0',
+            gap: isFuelTab ? '6px' : '0',
+            padding: isFuelTab ? '0 12px' : '0',
+            width: isFuelTab ? 'auto' : '30px',
+            minWidth: '30px',
             height: '30px',
-            borderRadius: '6px',
+            borderRadius: '7px',
             border: '1px solid #CBD5E1',
-            background: isFuelTab ? '#F8FAFC' : '#FFFFFF',
+            background: '#FFFFFF',
             cursor: 'pointer',
             color: '#334155',
             fontSize: '11px',
             fontWeight: 700,
             boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
             transition: 'all 0.15s ease',
-            flexShrink: 0
+            flexShrink: 0,
+            alignSelf: 'center',
+            marginRight: '2px'
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.borderColor = '#94A3B8'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = isFuelTab ? '#F8FAFC' : '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
-          title={isFuelTab ? "Back to General Reports" : "Go Back"}
+          onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+          title={isFuelTab ? "Back to General Reports" : (location.pathname === '/admin/reports/dashboard' ? "Back to Dashboard" : "Back to Fleet Dashboard")}
         >
-          <ArrowLeft size={14} />
+          <ArrowLeft size={15} />
           {isFuelTab && <span>General Reports</span>}
         </button>
         {REPORT_TABS.map(tab => {
