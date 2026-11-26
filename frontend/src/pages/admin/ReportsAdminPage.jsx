@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
-  FileText, ArrowLeft, Map, Activity, Route, Zap, TrendingUp, Printer,
+  FileText, ArrowLeft, Map, Activity, Route, Zap, TrendingUp, Printer, Truck,
   Search, RefreshCw, AlertCircle, Loader2, MapPin,
   PlayCircle, PauseCircle, StopCircle, Navigation,
   Gauge, Users, UserCircle, Building, Calendar, Wifi, WifiOff,
@@ -167,16 +167,16 @@ const ReportsAdminPage = () => {
     };
   }, [vehicles]);
 
-  // Unique modern executive cards with sleek gradients, subtle icons, and frosted counters
+  // Modern executive status cards with clean design system
   const STATUS_CARDS = [
-    { key: 'total', label: 'Total Fleet', value: metrics.total, grad: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 100%)', icon: Users, accent: '#A5B4FC' },
-    { key: 'online', label: 'Online', value: metrics.online, grad: 'linear-gradient(135deg, #064E3B 0%, #047857 100%)', icon: Wifi, accent: '#6EE7B7' },
-    { key: 'running', label: 'Running', value: metrics.running, grad: 'linear-gradient(135deg, #0F766E 0%, #0D9488 100%)', icon: PlayCircle, accent: '#5EEAD4' },
-    { key: 'idle', label: 'Idle', value: metrics.idle, grad: 'linear-gradient(135deg, #C2410C 0%, #EA580C 100%)', icon: Clock, accent: '#FDBA74' },
-    { key: 'parking', label: 'Parking', value: metrics.parking, grad: 'linear-gradient(135deg, #374151 0%, #4B5563 100%)', icon: StopCircle, accent: '#CBD5E1' },
-    { key: 'noData', label: 'No Data', value: metrics.noData, grad: 'linear-gradient(135deg, #9F1239 0%, #BE123C 100%)', icon: AlertTriangle, accent: '#FDA4AF' },
-    { key: 'totalKms', label: 'Total KMS', value: metrics.totalKms, grad: 'linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)', icon: Navigation, accent: '#93C5FD' },
-    { key: 'notSynced', label: 'Not Synced', value: metrics.notSynced, grad: 'linear-gradient(135deg, #0369A1 0%, #0284C7 100%)', icon: WifiOff, accent: '#7DD3FC' }
+    { key: 'total', label: 'Total Fleet', value: metrics.total, color: '#4F46E5', bg: '#EEF2FF', icon: Users },
+    { key: 'online', label: 'Online', value: metrics.online, color: '#059669', bg: '#ECFDF5', icon: Wifi },
+    { key: 'running', label: 'Running', value: metrics.running, color: '#0D9488', bg: '#F0FDFA', icon: PlayCircle },
+    { key: 'idle', label: 'Idle', value: metrics.idle, color: '#EA580C', bg: '#FFF7ED', icon: Clock },
+    { key: 'parking', label: 'Parking', value: metrics.parking, color: '#475569', bg: '#F8FAFC', icon: StopCircle },
+    { key: 'noData', label: 'No Data', value: metrics.noData, color: '#DC2626', bg: '#FEF2F2', icon: AlertTriangle },
+    { key: 'totalKms', label: 'Total KMS', value: metrics.totalKms, color: '#2563EB', bg: '#EFF6FF', icon: Navigation },
+    { key: 'notSynced', label: 'Not Synced', value: metrics.notSynced, color: '#0284C7', bg: '#F0F9FF', icon: WifiOff }
   ];
 
   const filteredVehicles = useMemo(() => {
@@ -220,6 +220,7 @@ const ReportsAdminPage = () => {
   }, [loading, vehicles, hasFuelFeature, isFuelTab, navigate]);
 
   const GENERAL_REPORT_TABS = [
+    { path: '/admin/reports/dashboard', label: 'Fleet Dashboard' },
     { path: '/admin/reports/distance', label: 'Daily Distance' },
     { path: '/admin/reports/ignition', label: 'Engine ON' },
     { path: '/admin/reports/overspeeding', label: 'Overspeeding' },
@@ -343,28 +344,28 @@ const ReportsAdminPage = () => {
               key={tab.path}
               onClick={() => navigate(tab.path)}
               style={{
-                padding: '9px 14px',
-                background: 'transparent',
+                padding: '7px 12px',
+                background: isActive ? '#FFF7ED' : 'transparent',
                 border: 'none',
-                borderBottom: isActive ? '2.5px solid #059669' : '2.5px solid transparent',
-                borderRadius: '4px 4px 0 0',
-                color: isActive ? '#047857' : '#1E293B',
+                borderBottom: isActive ? '2.5px solid #EA580C' : '2.5px solid transparent',
+                borderRadius: '6px 6px 0 0',
+                color: isActive ? '#EA580C' : '#334155',
                 fontWeight: isActive ? 800 : 600,
                 fontSize: '11.5px',
-                letterSpacing: '0.02em',
+                letterSpacing: '0.01em',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
-                transition: 'all 0.18s ease'
+                transition: 'all 0.15s ease'
               }}
               onMouseEnter={e => {
                 if (!isActive) {
-                  e.currentTarget.style.color = '#047857';
-                  e.currentTarget.style.background = '#F0FDF4';
+                  e.currentTarget.style.color = '#EA580C';
+                  e.currentTarget.style.background = '#F8FAFC';
                 }
               }}
               onMouseLeave={e => {
                 if (!isActive) {
-                  e.currentTarget.style.color = '#1E293B';
+                  e.currentTarget.style.color = '#334155';
                   e.currentTarget.style.background = 'transparent';
                 }
               }}
@@ -377,13 +378,13 @@ const ReportsAdminPage = () => {
 
       {/* ═══════════ CONTENT (DASHBOARD OR OUTLET) ═══════════ */}
       {location.pathname === '/admin/reports/dashboard' ? (
-        <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'auto', background: '#FFFFFF', gap: '6px' }}>
+        <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'auto', background: '#F8FAFC', gap: '10px' }}>
 
-          {/* 8 Unique Modern Executive Cards (2 rows of 4, compact & elegant) */}
+          {/* 8 Modern Clean Stat Cards */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: '6px',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))',
+            gap: '8px',
             flexShrink: 0
           }}>
             {STATUS_CARDS.map(card => {
@@ -394,58 +395,59 @@ const ReportsAdminPage = () => {
                   key={card.key}
                   onClick={() => setStatusFilter(prev => prev === card.key ? 'all' : card.key)}
                   style={{
-                    background: card.grad,
-                    borderRadius: '6px',
-                    padding: '6px 12px',
+                    background: '#FFFFFF',
+                    borderRadius: '10px',
+                    padding: '8px 12px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     cursor: 'pointer',
-                    border: isSelected ? '1px solid #FFFFFF' : '1px solid rgba(255, 255, 255, 0.15)',
+                    border: isSelected ? '1.5px solid #EA580C' : '1px solid #E2E8F0',
+                    borderTop: `3px solid ${card.color}`,
                     boxShadow: isSelected
-                      ? '0 0 0 2px #2563EB, 0 4px 10px rgba(0,0,0,0.2)'
-                      : '0 1px 3px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.18)',
-                    transition: 'all 0.18s ease',
+                      ? '0 0 0 2px rgba(234, 88, 12, 0.15), 0 2px 6px rgba(0,0,0,0.06)'
+                      : '0 1px 3px rgba(0,0,0,0.04)',
+                    transition: 'all 0.15s ease',
                     userSelect: 'none'
                   }}
                   onMouseEnter={e => {
                     e.currentTarget.style.transform = 'translateY(-1px)';
-                    e.currentTarget.style.boxShadow = '0 4px 10px rgba(0,0,0,0.18)';
+                    e.currentTarget.style.boxShadow = '0 4px 10px rgba(0,0,0,0.08)';
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.transform = 'translateY(0)';
                     e.currentTarget.style.boxShadow = isSelected
-                      ? '0 0 0 2px #2563EB, 0 4px 10px rgba(0,0,0,0.2)'
-                      : '0 1px 3px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.18)';
+                      ? '0 0 0 2px rgba(234, 88, 12, 0.15), 0 2px 6px rgba(0,0,0,0.06)'
+                      : '0 1px 3px rgba(0,0,0,0.04)';
                   }}
                   title={`Click to filter by ${card.label}`}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                    <Icon size={13} color={card.accent} style={{ flexShrink: 0 }} />
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#FFFFFF', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748B', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                       {card.label}
                     </span>
+                    <span style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', lineHeight: 1.1 }}>
+                      {card.value}
+                    </span>
                   </div>
-                  <span style={{
-                    background: 'rgba(255, 255, 255, 0.22)',
-                    backdropFilter: 'blur(4px)',
-                    padding: '2px 8px',
-                    borderRadius: '10px',
-                    fontSize: '13px',
-                    fontWeight: 800,
-                    color: '#FFFFFF',
-                    minWidth: '22px',
-                    textAlign: 'center',
-                    boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.1)'
+                  <div style={{
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '8px',
+                    background: card.bg,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
                   }}>
-                    {card.value}
-                  </span>
+                    <Icon size={15} color={card.color} strokeWidth={2.4} />
+                  </div>
                 </div>
               );
             })}
           </div>
 
-          {/* Compact Action & Search Bar */}
+          {/* Action & Search Bar */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -455,24 +457,26 @@ const ReportsAdminPage = () => {
             padding: '2px 0',
             flexShrink: 0
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '260px' }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
+                gap: '6px',
                 border: '1px solid #CBD5E1',
-                borderRadius: '4px',
-                padding: '3px 8px',
-                background: '#F8FAFC',
-                width: '240px'
+                borderRadius: '8px',
+                padding: '6px 10px',
+                background: '#FFFFFF',
+                width: '100%',
+                maxWidth: '300px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
               }}>
-                <Search size={12} color="#64748B" />
+                <Search size={14} color="#64748B" />
                 <input
                   type="text"
                   placeholder="Search vehicle reg no or name..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', fontSize: '11px', color: '#0F172A' }}
+                  style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', fontSize: '12px', color: '#0F172A' }}
                 />
               </div>
 
@@ -481,16 +485,20 @@ const ReportsAdminPage = () => {
                   onClick={() => setStatusFilter('all')}
                   style={{
                     background: '#EFF6FF',
-                    border: '1px solid #DBEAFE',
-                    color: '#2563EB',
-                    borderRadius: '4px',
-                    padding: '2px 8px',
+                    border: '1px solid #BFDBFE',
+                    color: '#1D4ED8',
+                    borderRadius: '6px',
+                    padding: '4px 10px',
                     fontSize: '11px',
-                    fontWeight: 600,
-                    cursor: 'pointer'
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
                   }}
                 >
-                  Filtered: {statusFilter} &times;
+                  <span>Filtered: {statusFilter}</span>
+                  <span style={{ fontWeight: 800 }}>&times;</span>
                 </button>
               )}
             </div>
@@ -502,15 +510,16 @@ const ReportsAdminPage = () => {
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '4px',
+                  gap: '5px',
                   background: '#F0FDF4',
-                  border: '1px solid #DCFCE7',
-                  padding: '3px 8px',
-                  borderRadius: '4px',
-                  fontSize: '11px',
+                  border: '1px solid #BBF7D0',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '11.5px',
                   fontWeight: 700,
                   color: '#15803D',
-                  cursor: filteredVehicles.length ? 'pointer' : 'not-allowed'
+                  cursor: filteredVehicles.length ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.15s ease'
                 }}
               >
                 <FileSpreadsheet size={13} color="#16A34A" />
@@ -523,15 +532,16 @@ const ReportsAdminPage = () => {
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '4px',
+                  gap: '5px',
                   background: '#FEF2F2',
-                  border: '1px solid #FEE2E2',
-                  padding: '3px 8px',
-                  borderRadius: '4px',
-                  fontSize: '11px',
+                  border: '1px solid #FECACA',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '11.5px',
                   fontWeight: 700,
                   color: '#B91C1C',
-                  cursor: filteredVehicles.length ? 'pointer' : 'not-allowed'
+                  cursor: filteredVehicles.length ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.15s ease'
                 }}
               >
                 <FileText size={13} color="#DC2626" />
@@ -543,155 +553,195 @@ const ReportsAdminPage = () => {
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '4px',
-                  background: '#F8FAFC',
+                  gap: '5px',
+                  background: '#FFFFFF',
                   border: '1px solid #CBD5E1',
-                  padding: '3px 8px',
-                  borderRadius: '4px',
-                  fontSize: '11px',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '11.5px',
                   fontWeight: 600,
-                  color: '#475569',
-                  cursor: 'pointer'
+                  color: '#334155',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
                 }}
               >
-                <RefreshCw size={12} />
+                <RefreshCw size={12} color="#64748B" />
                 Refresh
               </button>
             </div>
           </div>
 
-          {/* Table Container - True Excel Grid Layout with Exact Columns */}
+          {/* Table Card Container */}
           <div style={{
             flex: 1,
-            border: '1px solid #CBD5E1',
-            overflow: 'auto',
-            background: '#FFFFFF'
+            borderRadius: '10px',
+            border: '1px solid #E2E8F0',
+            overflow: 'hidden',
+            background: '#FFFFFF',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
           }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', minWidth: '1300px' }}>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                <tr style={{ background: '#064E3B', borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'left', minWidth: '130px' }}>Vehicle Name</th>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '90px' }}>Reg No</th>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '85px' }}>Last Seen</th>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '85px' }}>Last Comm</th>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '80px' }}>Driver</th>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '90px' }}>Driver Mobile</th>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'right', width: '60px' }}>Kms</th>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '50px' }}>Speed</th>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '55px' }}>Position</th>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '80px' }}>Duration HH:MM:SS</th>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'right', width: '70px' }}>Veh Battery</th>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '50px' }}>A/C</th>
-                  {hasFuelFeature && (
-                    <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'right', width: '65px' }}>Fuel (Ltrs)</th>
-                  )}
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '50px' }}>Celsius</th>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'left', minWidth: '200px' }}>Nearest Location</th>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '50px' }}>G-Map</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={hasFuelFeature ? 16 : 15} style={{ padding: '30px', textAlign: 'center', border: '1px solid #CBD5E1' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#059669', fontSize: '12px', fontWeight: 600 }}>
-                        <Loader2 size={16} className="animate-spin" />
-                        <span>Syncing fleet telemetry data...</span>
-                      </div>
-                    </td>
+            <div style={{ flex: 1, overflow: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', minWidth: '1300px' }}>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                  <tr style={{ background: '#0F172A', borderBottom: '1px solid #1E293B' }}>
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'left', minWidth: '130px' }}>Vehicle Name</th>
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', width: '90px' }}>Reg No</th>
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', width: '85px' }}>Last Seen</th>
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', width: '85px' }}>Last Comm</th>
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', width: '85px' }}>Driver</th>
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', width: '95px' }}>Driver Mobile</th>
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'right', width: '65px' }}>Kms</th>
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', width: '55px' }}>Speed</th>
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', width: '60px' }}>Position</th>
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', width: '90px' }}>Duration HH:MM:SS</th>
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'right', width: '75px' }}>Veh Battery</th>
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', width: '55px' }}>A/C</th>
+                    {hasFuelFeature && (
+                      <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'right', width: '70px' }}>Fuel (Ltrs)</th>
+                    )}
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', width: '55px' }}>Celsius</th>
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', borderRight: '1px solid rgba(255,255,255,0.08)', textAlign: 'left', minWidth: '200px' }}>Nearest Location</th>
+                    <th style={{ background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '9px 8px', textAlign: 'center', width: '55px' }}>G-Map</th>
                   </tr>
-                ) : filteredVehicles.length === 0 ? (
-                  <tr>
-                    <td colSpan={hasFuelFeature ? 16 : 15} style={{ padding: '24px', textAlign: 'center', color: '#64748B', border: '1px solid #CBD5E1', fontSize: '12px' }}>
-                      No vehicles found matching criteria.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredVehicles.map((v, idx) => {
-                    const speed = Math.round(v.current_speed !== undefined ? v.current_speed : (v.speed || 0));
-                    const ignition = !!(v.current_ignition !== undefined ? v.current_ignition : v.ignition);
-                    const details = getVehicleStatusDetails(v);
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={hasFuelFeature ? 16 : 15} style={{ padding: '36px', textAlign: 'center', borderBottom: '1px solid #E2E8F0' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#EA580C', fontSize: '12.5px', fontWeight: 600 }}>
+                          <Loader2 size={16} className="animate-spin text-orange-600" />
+                          <span>Syncing fleet telemetry data...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredVehicles.length === 0 ? (
+                    <tr>
+                      <td colSpan={hasFuelFeature ? 16 : 15} style={{ padding: '32px', textAlign: 'center', color: '#64748B', borderBottom: '1px solid #E2E8F0', fontSize: '12.5px' }}>
+                        No vehicles found matching criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredVehicles.map((v, idx) => {
+                      const speed = Math.round(v.current_speed !== undefined ? v.current_speed : (v.speed || 0));
+                      const ignition = !!(v.current_ignition !== undefined ? v.current_ignition : v.ignition);
+                      const details = getVehicleStatusDetails(v);
 
-                    const seen = formatDateTimeLines(v.last_seen);
-                    const comm = formatDateTimeLines(v.last_communication || v.last_seen || v.updated_at);
-                    const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
+                      const seen = formatDateTimeLines(v.last_seen);
+                      const comm = formatDateTimeLines(v.last_communication || v.last_seen || v.updated_at);
+                      const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
 
-                    return (
-                      <tr
-                        key={v.id}
-                        style={{ background: bg, transition: 'background 0.15s ease' }}
-                        onMouseEnter={e => e.currentTarget.style.background = '#ECFDF5'}
-                        onMouseLeave={e => e.currentTarget.style.background = bg}
-                      >
-                        <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', color: '#0284C7', fontWeight: 700, fontSize: '11.5px', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => navigate(`/vehicles/${v.id}`)}>
-                          {v.name || '-'}
-                        </td>
-                        <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', color: '#1E293B', fontWeight: 600, fontSize: '11px', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                          {v.plate || '-'}
-                        </td>
-                        <td style={{ padding: '2px 4px', border: '1px solid #CBD5E1', textAlign: 'center', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
-                          <div style={{ fontSize: '11px', color: '#0F172A', fontWeight: 600 }}>{seen.time}</div>
-                          <div style={{ fontSize: '10px', color: '#64748B' }}>{seen.date}</div>
-                        </td>
-                        <td style={{ padding: '2px 4px', border: '1px solid #CBD5E1', textAlign: 'center', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
-                          <div style={{ fontSize: '11px', color: '#0F172A', fontWeight: 600 }}>{comm.time}</div>
-                          <div style={{ fontSize: '10px', color: '#64748B' }}>{comm.date}</div>
-                        </td>
-                        <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', color: '#334155', fontSize: '11px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          {v.driver_name || '-'}
-                        </td>
-                        <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', color: '#334155', fontSize: '11px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          {v.driver_phone || v.driver_mobile || '-'}
-                        </td>
-                        <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 600, fontSize: '11px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          {v.distance_today !== undefined ? Number(v.distance_today).toFixed(2) : (v.today_kms !== undefined ? Number(v.today_kms).toFixed(2) : (v.current_odometer ? (Number(v.current_odometer) % 1000).toFixed(2) : '0.00'))}
-                        </td>
-                        <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', color: speed > 0 ? '#10B981' : '#64748B', fontWeight: 700, fontSize: '11px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          {speed}
-                        </td>
-                        <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
-                          {renderMapPointer(details)}
-                        </td>
-                        <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', color: '#334155', fontSize: '10.5px', textAlign: 'center', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
-                          {getVehicleDuration(v)}
-                        </td>
-                        <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', color: '#334155', fontSize: '11px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          {formatVoltage(v.current_voltage || v.metadata?.batteryVoltage)}
-                        </td>
-                        <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', textAlign: 'center', whiteSpace: 'nowrap', fontWeight: 700, fontSize: '10.5px', color: ignition ? '#10B981' : '#64748B' }}>
-                          {ignition ? 'ON' : 'OFF'}
-                        </td>
-                        {hasFuelFeature && (
-                          <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', color: '#0F172A', fontSize: '11px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                            {v.current_fuel !== undefined ? Number(v.current_fuel).toFixed(1) : (v.fuel_level !== undefined ? Number(v.fuel_level).toFixed(1) : '0')}
+                      return (
+                        <tr
+                          key={v.id}
+                          style={{ background: bg, transition: 'background 0.15s ease' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#FFF7ED'}
+                          onMouseLeave={e => e.currentTarget.style.background = bg}
+                        >
+                          <td style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', color: '#0284C7', fontWeight: 700, fontSize: '12px', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => navigate(`/vehicles/${v.id}`)}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                              <Truck size={13} color="#0284C7" />
+                              <span style={{ textDecoration: 'none' }} onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'} onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}>{v.name || '—'}</span>
+                            </div>
                           </td>
-                        )}
-                        <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', color: '#334155', fontSize: '11px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          {v.temperature !== undefined ? `${v.temperature}` : '0'}
-                        </td>
-                        <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', color: '#1E293B', fontSize: '11px', textAlign: 'left', minWidth: '200px', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.2 }}>
-                          {v.address ? v.address : ((v.lat && v.lng) ? <AddressText lat={v.lat} lng={v.lng} /> : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Location unavailable</span>)}
-                        </td>
-                        <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          {(v.lat && v.lng) ? (
-                            <a
-                              href={`https://maps.google.com/?q=${v.lat},${v.lng}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ color: '#0284C7', fontWeight: 700, fontSize: '11px', textDecoration: 'none' }}
-                              onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
-                              onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
-                            >
-                              Link
-                            </a>
-                          ) : '-'}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', color: '#1E293B', fontWeight: 600, fontSize: '11px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                            {v.plate || <span style={{ color: '#94A3B8' }}>—</span>}
+                          </td>
+                          <td style={{ padding: '4px 6px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', textAlign: 'center', whiteSpace: 'nowrap', lineHeight: 1.25 }}>
+                            <div style={{ fontSize: '11px', color: '#0F172A', fontWeight: 600 }}>{seen.time}</div>
+                            <div style={{ fontSize: '10px', color: '#64748B' }}>{seen.date}</div>
+                          </td>
+                          <td style={{ padding: '4px 6px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', textAlign: 'center', whiteSpace: 'nowrap', lineHeight: 1.25 }}>
+                            <div style={{ fontSize: '11px', color: '#0F172A', fontWeight: 600 }}>{comm.time}</div>
+                            <div style={{ fontSize: '10px', color: '#64748B' }}>{comm.date}</div>
+                          </td>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', color: '#334155', fontSize: '11px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {v.driver_name || <span style={{ color: '#94A3B8' }}>—</span>}
+                          </td>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', color: '#334155', fontSize: '11px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {v.driver_phone || v.driver_mobile || <span style={{ color: '#94A3B8' }}>—</span>}
+                          </td>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', color: '#0F172A', fontWeight: 600, fontSize: '11px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            {v.distance_today !== undefined ? Number(v.distance_today).toFixed(2) : (v.today_kms !== undefined ? Number(v.today_kms).toFixed(2) : (v.current_odometer ? (Number(v.current_odometer) % 1000).toFixed(2) : '0.00'))}
+                          </td>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', color: speed > 0 ? '#10B981' : '#64748B', fontWeight: 700, fontSize: '11px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {speed}
+                          </td>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', textAlign: 'center' }}>
+                            {renderMapPointer(details)}
+                          </td>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', color: '#334155', fontSize: '11px', textAlign: 'center', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
+                            {getVehicleDuration(v)}
+                          </td>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', color: '#334155', fontSize: '11px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                            {formatVoltage(v.current_voltage || v.metadata?.batteryVoltage)}
+                          </td>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              background: ignition ? '#ECFDF5' : '#F1F5F9',
+                              color: ignition ? '#047857' : '#64748B',
+                              border: ignition ? '1px solid #A7F3D0' : '1px solid #E2E8F0'
+                            }}>
+                              {ignition ? 'ON' : 'OFF'}
+                            </span>
+                          </td>
+                          {hasFuelFeature && (
+                            <td style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', color: '#0F172A', fontSize: '11px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                              {v.current_fuel !== undefined ? Number(v.current_fuel).toFixed(1) : (v.fuel_level !== undefined ? Number(v.fuel_level).toFixed(1) : '0')}
+                            </td>
+                          )}
+                          <td style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', color: '#334155', fontSize: '11px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {v.temperature !== undefined ? `${v.temperature}` : '0'}
+                          </td>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', borderRight: '1px solid #F1F5F9', color: '#1E293B', fontSize: '11px', textAlign: 'left', minWidth: '200px', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.25 }}>
+                            {v.address ? v.address : ((v.lat && v.lng) ? <AddressText lat={v.lat} lng={v.lng} /> : <span style={{ color: '#94A3B8' }}>Location unavailable</span>)}
+                          </td>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px solid #E2E8F0', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {(v.lat && v.lng) ? (
+                              <a
+                                href={`https://maps.google.com/?q=${v.lat},${v.lng}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: '#0284C7', fontWeight: 700, fontSize: '11px', textDecoration: 'none' }}
+                                onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                                onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                              >
+                                View
+                              </a>
+                            ) : <span style={{ color: '#94A3B8' }}>—</span>}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Table Footer */}
+            <div style={{
+              padding: '7px 12px',
+              background: '#F8FAFC',
+              borderTop: '1px solid #E2E8F0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '11.5px',
+              color: '#64748B',
+              fontWeight: 600,
+              flexShrink: 0
+            }}>
+              <span>Showing <strong>{filteredVehicles.length}</strong> of <strong>{vehicles.length}</strong> vehicles</span>
+              {statusFilter !== 'all' && (
+                <span style={{ color: '#EA580C', fontWeight: 700 }}>Filter applied: {statusFilter}</span>
+              )}
+            </div>
           </div>
         </div>
       ) : (
