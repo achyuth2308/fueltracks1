@@ -125,6 +125,7 @@ function initB20Server(port, protocolStats, connectedDevices, publisher) {
         const imei = B20_DEVICE_MAP[terminalId] || terminalId;
         parsed.imei = imei;
         parsed.terminalId = terminalId;
+        parsed.rawPacket = frame.toString('hex').toUpperCase();
 
         if (terminalId && terminalId !== sessionImei) {
           sessionImei = terminalId;

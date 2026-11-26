@@ -99,6 +99,8 @@ function imeiToBcd(idStr) {
 
 /**
  * Parse 6-byte BCD Date/Time: YYMMDDhhmmss
+ * Per JT808 (GB/T 19056 / JT/T 808) standard, time is encoded in GMT+8 (Beijing Time).
+ * This function converts GMT+8 to UTC so backend comparison against server UTC time succeeds.
  */
 function parseBcdDate(b6) {
   try {
@@ -118,7 +120,20 @@ function parseBcdDate(b6) {
     const mins = Math.max(0, Math.min(59, isNaN(mm) ? 0 : mm));
     const secs = Math.max(0, Math.min(59, isNaN(ss) ? 0 : ss));
 
-    return new Date(Date.UTC(year, month, day, hours, mins, secs)).toISOString();
+    const rawUtcMs = Date.UTC(year, month, day, hours, mins, secs);
+    const nowMs = Date.now();
+    // JT808 specification explicitly defines BCD time as GMT+8 (Beijing Time).
+    // Convert to UTC by subtracting 8 hours (8 * 3600 * 1000 ms).
+    const gmt8ConvertedMs = rawUtcMs - (8 * 3600 * 1000);
+
+    // If tracker is sending standard GMT+8, rawUtcMs is ~8h in the future, while gmt8ConvertedMs is close to now.
+    // If tracker is already set to UTC, rawUtcMs is close to now.
+    let finalMs = gmt8ConvertedMs;
+    if (Math.abs(rawUtcMs - nowMs) < Math.abs(gmt8ConvertedMs - nowMs)) {
+      finalMs = rawUtcMs;
+    }
+
+    return new Date(finalMs).toISOString();
   } catch (e) {
     return new Date().toISOString();
   }
@@ -304,9 +319,52 @@ function parseB20Frame(frame) {
         else if (tag === 0x31 && len >= 1) {
           parsed.satellites = val[0];
         }
-        // Tag 0xE3: Battery Voltage (0.001V)
+        // Tag 0xE3: Battery Percentage & Voltage
         else if (tag === 0xE3 && len >= 4) {
-          parsed.voltage = Number((val.readUInt16BE(2) / 1000).toFixed(2));
+          parsed.battery = Math.min(100, val.readUInt16BE(0));
+          const rawV = val.readUInt16BE(2);
+          // Automotive voltage: 1340 -> 13.4V (0.01V units)
+          parsed.voltage = rawV > 100 ? Number((rawV / 100).toFixed(2)) : Number(rawV.toFixed(2));
+        }
+        // Tag 0xF3: OBD Extended Diagnostic Stream
+        else if (tag === 0xF3 && len >= 4) {
+          let subOff = 0;
+          while (subOff + 3 <= val.length) {
+            const subTag = val.readUInt16BE(subOff);
+            const subLen = val[subOff + 2];
+            subOff += 3;
+            if (subOff + subLen > val.length) break;
+            const subVal = val.subarray(subOff, subOff + subLen);
+            subOff += subLen;
+
+            // Sub-tag 0x0002: Speed
+            if (subTag === 0x0002 && subLen >= 2) {
+              obd.obdSpeed = subVal.readUInt16BE(0);
+            }
+            // Sub-tag 0x0003: Engine RPM
+            else if (subTag === 0x0003 && subLen >= 2) {
+              obd.engineRpm = subVal.readUInt16BE(0);
+              if (obd.engineRpm > 300) parsed.ignition = true;
+            }
+            // Sub-tag 0x0005: Total Mileage / Odometer (0.1 km)
+            else if (subTag === 0x0005 && subLen >= 4) {
+              const odo = Number((subVal.readUInt32BE(0) / 10).toFixed(2));
+              if (odo > 0) parsed.odometer = odo;
+              obd.totalOdometerKm = odo;
+            }
+            // Sub-tag 0x0006: Total Fuel (0.1 L)
+            else if (subTag === 0x0006 && subLen >= 2) {
+              obd.totalFuelLitres = Number((subVal.readUInt16BE(0) / 10).toFixed(1));
+            }
+            // Sub-tag 0x0008: Throttle %
+            else if (subTag === 0x0008 && subLen >= 1) {
+              obd.throttlePercent = subVal[0];
+            }
+            // Sub-tag 0x0009: Coolant Temperature (°C, offset -40)
+            else if (subTag === 0x0009 && subLen >= 2) {
+              obd.coolantTempCelsius = subVal.readUInt16BE(0) - 40;
+            }
+          }
         }
         // Tag 0x94: VIN Code
         else if (tag === 0x94 && len >= 17) {

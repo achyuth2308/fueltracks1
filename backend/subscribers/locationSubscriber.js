@@ -326,8 +326,16 @@ async function start(io) {
           isValidPoint = false;
           rejectReason = `Timestamp too old (>30 days behind server): ${new Date(deviceTime).toISOString()}`;
         } else if (deviceTimeMs > serverTimeMs + (15 * 60 * 1000)) {
-          isValidPoint = false;
-          rejectReason = `Timestamp in future (>15m ahead of server): ${new Date(deviceTime).toISOString()}`;
+          // Check if timestamp was sent in GMT+8 (Beijing time, 8 hours ahead of UTC)
+          const gmt8OffsetMs = 8 * 3600 * 1000;
+          if (Math.abs((deviceTimeMs - gmt8OffsetMs) - serverTimeMs) <= (60 * 60 * 1000)) {
+            // Self-correct GMT+8 timestamp to UTC
+            data.deviceTime = new Date(deviceTimeMs - gmt8OffsetMs).toISOString();
+            console.log(`[SUBSCRIBER] Self-corrected GMT+8 timestamp for ${imei}: ${deviceTime} -> ${data.deviceTime}`);
+          } else {
+            isValidPoint = false;
+            rejectReason = `Timestamp in future (>15m ahead of server): ${new Date(deviceTime).toISOString()}`;
+          }
         } 
         // 2. Rollback check for genuine live streams (allow 2 min slack for unordered network delivery)
         // Stored buffer dumps (isLive === 0 or false, or timestamp > 5 min behind server) MUST NEVER be dropped!
