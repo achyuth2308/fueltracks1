@@ -108,9 +108,9 @@ class ManualFuelController {
    */
   async getOverview(req, res, next) {
     try {
-      const orgId = req.user.orgId;
-      const role = req.user.role;
-      const userId = req.user.userId;
+      const orgId = req.user?.orgId || req.user?.org_id;
+      const role = req.user?.role;
+      const userId = req.user?.userId || req.user?.id;
       const data = await manualFuelService.getFleetFuelOverview(orgId, role, userId);
       res.json({ success: true, data });
     } catch (err) {
@@ -124,9 +124,9 @@ class ManualFuelController {
    */
   async getReport(req, res, next) {
     try {
-      const orgId = req.user.orgId;
-      const role = req.user.role;
-      const userId = req.user.userId;
+      const orgId = req.user?.orgId || req.user?.org_id;
+      const role = req.user?.role;
+      const userId = req.user?.userId || req.user?.id;
       const { vehicleId, startDate, endDate } = req.query;
       const data = await manualFuelService.getNonSensorFuelReport(orgId, role, userId, { vehicleId, startDate, endDate });
       res.json({ success: true, data });

@@ -348,11 +348,16 @@ const NonSensorFuelReportPage = () => {
               className="flex-1 px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
             >
               <option value="all">All Non-Sensor Vehicles</option>
-              {vehicles.map(v => (
-                <option key={v.vehicle_id} value={v.vehicle_id}>
-                  {v.plate} {v.vehicle_name && v.vehicle_name !== v.plate ? `(${v.vehicle_name})` : ''}
-                </option>
-              ))}
+              {vehicles.map(v => {
+                const displayName = v.plate 
+                  ? (v.vehicle_name && v.vehicle_name !== v.plate ? `${v.plate} (${v.vehicle_name})` : v.plate)
+                  : (v.vehicle_name || 'Vehicle');
+                return (
+                  <option key={v.vehicle_id} value={v.vehicle_id}>
+                    {displayName}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -559,8 +564,10 @@ const NonSensorFuelReportPage = () => {
                       <tr key={v.vehicle_id} className="hover:bg-slate-50/80 transition-colors">
                         {/* Vehicle */}
                         <td className="py-3 px-3">
-                          <div className="font-extrabold text-slate-900 text-xs">{v.plate}</div>
-                          {v.vehicle_name && v.vehicle_name !== v.plate && (
+                          <div className="font-extrabold text-slate-900 text-xs">
+                            {v.plate || v.vehicle_name || 'Vehicle'}
+                          </div>
+                          {v.plate && v.vehicle_name && v.vehicle_name !== v.plate && (
                             <div className="text-[10px] text-slate-400 font-medium">{v.vehicle_name}</div>
                           )}
                         </td>
@@ -694,8 +701,8 @@ const NonSensorFuelReportPage = () => {
                         {formatLocalTime(e.entry_time)}
                       </td>
                       <td className="py-3 px-3">
-                        <div className="font-extrabold text-slate-900">{e.plate}</div>
-                        {e.vehicle_name && e.vehicle_name !== e.plate && (
+                        <div className="font-extrabold text-slate-900">{e.plate || e.vehicle_name || 'Vehicle'}</div>
+                        {e.plate && e.vehicle_name && e.vehicle_name !== e.plate && (
                           <div className="text-[10px] text-slate-400">{e.vehicle_name}</div>
                         )}
                       </td>
