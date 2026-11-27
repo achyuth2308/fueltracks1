@@ -1384,6 +1384,11 @@ async function start(io) {
           satellites, gsmSignal, battery, deviceTime, isOnline: true,
           // today_distance included so the mobile app can display live covered distance
           today_distance: todayDistanceKm ?? 0,
+          rpm: data.rpm || data.obd?.engineRpm || (prevState && prevState.rpm) || null,
+          temperature: data.temperature !== undefined && data.temperature !== null ? data.temperature : (data.obd?.coolantTempCelsius !== undefined ? data.obd.coolantTempCelsius : (prevState && prevState.temperature !== undefined ? prevState.temperature : null)),
+          coolant_temp: data.coolantTemp !== undefined && data.coolantTemp !== null ? data.coolantTemp : (data.obd?.coolantTempCelsius !== undefined ? data.obd.coolantTempCelsius : null),
+          throttle: data.throttle !== undefined && data.throttle !== null ? data.throttle : (data.obd?.throttlePercent !== undefined ? data.obd.throttlePercent : null),
+          obd: data.obd || (prevState && prevState.obd) || null,
           // statusSince: the exact timestamp when the vehicle entered its current status
           // (Moving/Idle/Parked). Flutter uses this to show accurate duration like
           // "Moving Since 10:25 AM (3h 15m)" instead of resetting to now() every packet.

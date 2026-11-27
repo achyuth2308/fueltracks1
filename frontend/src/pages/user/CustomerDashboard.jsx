@@ -10,7 +10,7 @@ import { useVehicles } from '../../hooks/useVehicles';
 import { useAuth } from '../../hooks/useAuth';
 import FleetMap from '../../components/map/FleetMap';
 import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
-import { formatSpeed, formatVoltage, formatDirection } from '../../utils/formatUtils';
+import { formatSpeed, formatVoltage, formatDirection, formatFuel } from '../../utils/formatUtils';
 import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
@@ -1006,6 +1006,26 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                     {formatDirection(hoveredVehicle.current_direction)}
                   </td>
                 </tr>
+                {(hoveredVehicle.rpm || hoveredVehicle.engine_rpm || (hoveredVehicle.temperature !== undefined && hoveredVehicle.temperature !== null) || (hoveredVehicle.coolant_temp !== undefined && hoveredVehicle.coolant_temp !== null)) && (
+                  <tr>
+                    <td style={{ color: '#64748b', padding: '2px 0' }}>Engine RPM</td>
+                    <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                      {hoveredVehicle.rpm || hoveredVehicle.engine_rpm || 'N/A'}
+                    </td>
+                    <td style={{ color: '#64748b', padding: '2px 0' }}>Coolant Temp</td>
+                    <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                      {(hoveredVehicle.temperature !== undefined && hoveredVehicle.temperature !== null) ? `${hoveredVehicle.temperature} °C` : ((hoveredVehicle.coolant_temp !== undefined && hoveredVehicle.coolant_temp !== null) ? `${hoveredVehicle.coolant_temp} °C` : 'N/A')}
+                    </td>
+                  </tr>
+                )}
+                {(hasVehicleFuelCapability(hoveredVehicle) || (hoveredVehicle.current_fuel !== undefined && hoveredVehicle.current_fuel !== null) || hoveredVehicle.manual_tank_capacity) && (
+                  <tr>
+                    <td style={{ color: '#64748b', padding: '2px 0' }}>Fuel</td>
+                    <td colSpan="3" style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                      {formatFuel(hoveredVehicle.current_fuel, hoveredVehicle.tank_capacity || hoveredVehicle.manual_tank_capacity)}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
 
