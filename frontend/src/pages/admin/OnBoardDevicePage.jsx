@@ -97,6 +97,7 @@ const OnBoardDevicePage = () => {
 
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
   const isUsernameExists = useMemo(() => {
     if (!usernameTouched || !newUser.username?.trim()) return false;
@@ -587,6 +588,7 @@ const OnBoardDevicePage = () => {
   const handleSubmit = async () => {
     setMessage('');
     setError('');
+    setHasAttemptedSubmit(true);
     setIsSubmitting(true);
 
     try {
@@ -621,6 +623,24 @@ const OnBoardDevicePage = () => {
         const invalidRows = devices.filter(d => !d.deviceId || !/^\d{15}$/.test(String(d.deviceId).trim()));
         if (invalidRows.length > 0) {
           throw new Error('Device IMEI must be exactly 15 numeric digits compulsory. Less than or more than 15 digits cannot be accepted.');
+        }
+
+        // Validate Vehicle ID is entered for all rows
+        for (let i = 0; i < devices.length; i++) {
+          const vid = String(devices[i].vehicleId || '').trim();
+          if (!vid) {
+            throw new Error(devices.length === 1 ? 'Vehicle ID is required.' : `Row ${i + 1}: Vehicle ID is required.`);
+          }
+        }
+
+        // Validate unique Vehicle IDs across rows
+        const seenVids = new Set();
+        for (let i = 0; i < devices.length; i++) {
+          const vid = String(devices[i].vehicleId || '').trim().toUpperCase();
+          if (seenVids.has(vid)) {
+            throw new Error(`Row ${i + 1}: Duplicate Vehicle ID "${devices[i].vehicleId}". Each vehicle must have a unique Vehicle ID.`);
+          }
+          seenVids.add(vid);
         }
 
         // Validate Device Type is selected for all rows
@@ -1132,7 +1152,9 @@ const OnBoardDevicePage = () => {
                       <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '155px', borderRight: '1px solid #E2E8F0' }}>
                         Device ID(IMEI) <span style={{ color: '#EF4444' }}>*</span>
                       </th>
-                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '125px', borderRight: '1px solid #E2E8F0' }}>Vehicle Id</th>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '125px', borderRight: '1px solid #E2E8F0' }}>
+                        Vehicle Id <span style={{ color: '#EF4444' }}>*</span>
+                      </th>
                       <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '120px', borderRight: '1px solid #E2E8F0' }}>GPS SIM 1</th>
                       <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '120px', borderRight: '1px solid #E2E8F0' }}>GPS SIM 2</th>
                       <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '165px', borderRight: '1px solid #E2E8F0' }}>
@@ -1210,10 +1232,24 @@ const OnBoardDevicePage = () => {
                           </td>
                           <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '125px' }}>
                             <input
-                              type="text" placeholder="Vehicle Id" value={device.vehicleId}
+                              type="text"
+                              placeholder="Vehicle Id *"
+                              value={device.vehicleId}
                               onChange={(e) => updateDevice(idx, 'vehicleId', e.target.value)}
-                              style={{ ...inputStyle, height: '32px', padding: '3px 8px', fontSize: '11.5px' }}
+                              style={{
+                                ...inputStyle,
+                                height: '32px',
+                                padding: '3px 8px',
+                                fontSize: '11.5px',
+                                border: hasAttemptedSubmit && !device.vehicleId?.trim() ? '1.5px solid #EF4444' : '1px solid #CBD5E1',
+                                background: hasAttemptedSubmit && !device.vehicleId?.trim() ? '#FEF2F2' : '#FFFFFF'
+                              }}
                             />
+                            {hasAttemptedSubmit && !device.vehicleId?.trim() && (
+                              <div style={{ fontSize: '9.5px', color: '#EF4444', fontWeight: 700, marginTop: '2px' }}>
+                                Vehicle ID required
+                              </div>
+                            )}
                           </td>
                           <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '120px' }}>
                             <input
