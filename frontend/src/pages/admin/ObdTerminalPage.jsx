@@ -608,16 +608,85 @@ export default function ObdTerminalPage() {
           title="Fuel Intelligence"
           icon={<Fuel className="w-5 h-5 text-emerald-600" />}
           accentColor="emerald"
-          badge={currentTelemetry?.fuelRemainingL !== undefined && currentTelemetry?.fuelRemainingL !== null ? `${currentTelemetry.fuelRemainingL} L` : 'Live ECU'}
+          badge={currentTelemetry?.fuelRemainingL !== undefined && currentTelemetry?.fuelRemainingL !== null ? `${currentTelemetry.fuelRemainingL} L in Tank` : 'Live ECU'}
         >
-          <DataRow label="Tank Fuel Remaining" value={formatNum(currentTelemetry?.fuelRemainingL, 'Litres')} highlight />
-          <DataRow label="Tank Level Percentage" value={formatNum(currentTelemetry?.fuelLevelPct, '%')} />
-          <DataRow label="Trip Fuel Consumed" value={formatNum(currentTelemetry?.tripFuelL, 'Litres')} />
-          <DataRow label="Total Lifetime Fuel" value={formatNum(currentTelemetry?.totalFuelL, 'Litres')} highlight />
-          <DataRow label="Instant Fuel Burn" value={formatNum(currentTelemetry?.instantFuelL100km, 'L/100km')} />
-          <DataRow label="Average Fuel Economy" value={formatNum(currentTelemetry?.avgFuelL100km, 'L/100km')} />
-          <DataRow label="Auxiliary Tank (Tag 02)" value={formatNum(currentTelemetry?.auxFuelL, 'Litres')} />
-          <DataRow label="Fuel Rail Pressure" value={formatNum(currentTelemetry?.fuelRailPressureKpa, 'kPa')} />
+          {/* Section A: Tank Volume & Gauge */}
+          <div className="pb-2 mb-2 border-b border-slate-100">
+            <div className="flex items-center justify-between text-[10px] font-bold tracking-wider uppercase text-emerald-700 mb-1">
+              <span>⛽ Fuel Tank Level (Current Volume)</span>
+              <span className="px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Inside Tank
+              </span>
+            </div>
+            
+            <DataRow 
+              label="Current Fuel in Tank (Remaining)" 
+              value={formatNum(currentTelemetry?.fuelRemainingL, 'Litres')} 
+              highlight 
+            />
+
+            {/* Visual Fuel Gauge Bar */}
+            {currentTelemetry?.fuelLevelPct !== null && currentTelemetry?.fuelLevelPct !== undefined && (
+              <div className="py-1.5 px-0.5">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-slate-500 font-medium text-[11px]">Fuel Gauge Level</span>
+                  <span className={`font-mono font-bold text-[11px] ${
+                    currentTelemetry.fuelLevelPct <= 15 ? 'text-rose-600' : 'text-emerald-600'
+                  }`}>
+                    {currentTelemetry.fuelLevelPct}% {currentTelemetry.fuelLevelPct <= 15 ? '⚠️ Low Reserve' : '✓ Normal'}
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/60">
+                  <div 
+                    className={`h-full transition-all duration-500 rounded-full ${
+                      currentTelemetry.fuelLevelPct <= 15 
+                        ? 'bg-gradient-to-r from-rose-500 to-amber-500' 
+                        : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                    }`}
+                    style={{ width: `${Math.min(100, Math.max(3, currentTelemetry.fuelLevelPct))}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            
+            <DataRow 
+              label="Tank Level Percentage" 
+              value={currentTelemetry?.fuelLevelPct !== null && currentTelemetry?.fuelLevelPct !== undefined ? `${currentTelemetry.fuelLevelPct} %` : '—'} 
+              badge={currentTelemetry?.fuelLevelPct !== null && currentTelemetry?.fuelLevelPct !== undefined
+                ? (currentTelemetry.fuelLevelPct <= 15 ? 'bg-rose-100 text-rose-800 font-bold' : 'bg-emerald-50 text-emerald-700')
+                : null
+              }
+            />
+          </div>
+
+          {/* Section B: Engine Consumption (Cumulative Burned) */}
+          <div className="pb-2 mb-2 border-b border-slate-100">
+            <div className="flex items-center justify-between text-[10px] font-bold tracking-wider uppercase text-amber-700 mb-1">
+              <span>🔥 Engine Consumption (Burned Fuel)</span>
+              <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                Odometer
+              </span>
+            </div>
+
+            <DataRow 
+              label="Trip Fuel Burned (Current Trip)" 
+              value={formatNum(currentTelemetry?.tripFuelL, 'Litres')} 
+            />
+            <DataRow 
+              label="Lifetime Fuel Burned (Engine Total)" 
+              value={formatNum(currentTelemetry?.totalFuelL, 'Litres')} 
+              highlight 
+              badge="bg-amber-50 text-amber-800 font-semibold"
+            />
+          </div>
+
+          {/* Section C: Economy & Pressures */}
+          <div>
+            <DataRow label="Instant Fuel Burn" value={formatNum(currentTelemetry?.instantFuelL100km, 'L/100km')} />
+            <DataRow label="Average Fuel Economy" value={formatNum(currentTelemetry?.avgFuelL100km, 'L/100km')} />
+            <DataRow label="Auxiliary Tank (Tag 02)" value={formatNum(currentTelemetry?.auxFuelL, 'Litres')} />
+            <DataRow label="Fuel Rail Pressure" value={formatNum(currentTelemetry?.fuelRailPressureKpa, 'kPa')} />
+          </div>
         </DiagnosticCard>
 
         {/* CARD 2: ⚙️ ENGINE & ECU DIAGNOSTICS */}
@@ -747,8 +816,8 @@ export default function ObdTerminalPage() {
                   <th className="py-3 px-4">RPM</th>
                   <th className="py-3 px-4">GPS Speed</th>
                   <th className="py-3 px-4">Voltage</th>
-                  <th className="py-3 px-4">Tank Fuel</th>
-                  <th className="py-3 px-4">Total Fuel</th>
+                  <th className="py-3 px-4">In Tank (L)</th>
+                  <th className="py-3 px-4">Lifetime Burned (L)</th>
                   <th className="py-3 px-4">Coolant</th>
                   <th className="py-3 px-4">Satellites</th>
                   <th className="py-3 px-4 text-right">Inspect Hex</th>
