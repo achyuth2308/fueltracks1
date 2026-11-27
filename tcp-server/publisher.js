@@ -49,7 +49,9 @@ async function publishLocation(parsed) {
   let { imei, lat, lng, speed, fuel, fuel2, fuel3, fuel4, lls2, ble_fuel_2,
         ignition, voltage, direction,
         odometer, satellites, gsmSignal, battery, deviceTime, isLive,
-        rawPacket, packetType } = parsed;
+        rawPacket, rawHex, packetType } = parsed;
+
+  const actualRawHex = rawHex || rawPacket || parsed.rawString || null;
 
   // Validate coordinates — reject 0,0 or out-of-range values
   const isInvalidCoords = !lat || !lng
@@ -123,7 +125,8 @@ async function publishLocation(parsed) {
     obd: parsed.obd || null,
     deviceTime,
     isLive,
-    rawHex: rawPacket,
+    rawHex: actualRawHex,
+    rawPacket: actualRawHex,
     packetType,
     serverTime: new Date().toISOString(),
   });
