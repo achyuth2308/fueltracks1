@@ -749,21 +749,21 @@ export default function ObdTerminalPage() {
         </div>
       )}
 
-      {/* ── 6 CATEGORY DIAGNOSTIC CARDS (2-COLUMN STRUCTURE) ──────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      {/* ── 6 CATEGORY DIAGNOSTIC CARDS (COMPACT COCKPIT GRID) ───────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-6">
         
         {/* CARD 1: ⛽ FUEL INTELLIGENCE */}
         <DiagnosticCard
           title="Fuel Intelligence"
-          icon={<Fuel className="w-5 h-5 text-emerald-600" />}
+          icon={<Fuel className="w-3.5 h-3.5 text-emerald-600" />}
           accentColor="emerald"
           badge={rawRemainingL !== undefined && rawRemainingL !== null ? `${rawRemainingL} L in Tank` : 'Live ECU'}
         >
           {/* Section A: Tank Volume & Gauge */}
-          <div className="pb-2.5 mb-2.5 border-b border-slate-100">
-            <div className="flex items-center justify-between text-[10px] font-bold tracking-wider uppercase text-emerald-700 mb-1.5">
+          <div className="pb-1.5 mb-1.5 border-b border-slate-100">
+            <div className="flex items-center justify-between text-[9.5px] font-bold tracking-wider uppercase text-emerald-700 mb-1">
               <span>⛽ Fuel Tank Level (Current Volume)</span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">
+              <span className="px-1.5 py-0.2 rounded text-[9.5px] font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200/70">
                 Inside Tank
               </span>
             </div>
@@ -775,22 +775,22 @@ export default function ObdTerminalPage() {
               badge={
                 rawRemainingL === 0 && isEcuSleeping 
                   ? 'bg-slate-100 text-slate-600 font-normal' 
-                  : (rawRemainingL > 0 ? 'bg-emerald-50 text-emerald-700 font-semibold' : null)
+                  : (rawRemainingL > 0 ? 'bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200/50' : null)
               }
             />
 
             {/* Visual Fuel Gauge Bar (Only shown if effective percentage is known) */}
             {effectivePct !== null ? (
-              <div className="py-1.5 px-0.5">
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="text-slate-500 font-medium text-[11px]">Fuel Gauge Level</span>
-                  <span className={`font-mono font-bold text-[11px] ${
+              <div className="py-1 px-0.5">
+                <div className="flex items-center justify-between text-[10px] mb-0.5">
+                  <span className="text-slate-400 font-medium">Fuel Gauge Level</span>
+                  <span className={`font-mono font-bold ${
                     effectivePct <= 15 ? 'text-rose-600' : 'text-emerald-600'
                   }`}>
                     {effectivePct}% {effectivePct <= 15 ? '⚠️ Low Reserve' : '✓ Normal'}
                   </span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/60">
+                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200/50">
                   <div 
                     className={`h-full transition-all duration-500 rounded-full ${
                       effectivePct <= 15 
@@ -821,10 +821,10 @@ export default function ObdTerminalPage() {
           </div>
 
           {/* Section B: Engine Consumption (Cumulative Burned) */}
-          <div className="pb-2 mb-2 border-b border-slate-100">
-            <div className="flex items-center justify-between text-[10px] font-bold tracking-wider uppercase text-amber-700 mb-1">
+          <div className="pb-1.5 mb-1.5 border-b border-slate-100">
+            <div className="flex items-center justify-between text-[9.5px] font-bold tracking-wider uppercase text-amber-700 mb-1">
               <span>🔥 Engine Consumption (Burned Fuel)</span>
-              <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">
+              <span className="px-1.5 py-0.2 rounded text-[9.5px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/70">
                 Odometer
               </span>
             </div>
@@ -837,7 +837,7 @@ export default function ObdTerminalPage() {
               label="Lifetime Fuel Burned (Engine Total)" 
               value={formatNum(currentTelemetry?.totalFuelL, 'Litres')} 
               highlight 
-              badge="bg-amber-50 text-amber-800 font-semibold"
+              badge="bg-amber-50 text-amber-800 font-semibold border border-amber-200/60"
             />
           </div>
 
@@ -853,7 +853,7 @@ export default function ObdTerminalPage() {
         {/* CARD 2: ⚙️ ENGINE & ECU DIAGNOSTICS */}
         <DiagnosticCard
           title="Engine & ECU Diagnostics"
-          icon={<Gauge className="w-5 h-5 text-indigo-600" />}
+          icon={<Gauge className="w-3.5 h-3.5 text-indigo-600" />}
           accentColor="indigo"
           badge={currentTelemetry?.engineRpm !== undefined && currentTelemetry?.engineRpm !== null ? `${currentTelemetry.engineRpm} RPM` : 'Live CAN'}
         >
@@ -870,22 +870,22 @@ export default function ObdTerminalPage() {
         {/* CARD 3: 🔋 BATTERY & ELECTRICAL SYSTEMS */}
         <DiagnosticCard
           title="Battery & Electrical"
-          icon={<BatteryCharging className="w-5 h-5 text-amber-600" />}
+          icon={<BatteryCharging className="w-3.5 h-3.5 text-amber-600" />}
           accentColor="amber"
           badge={currentTelemetry?.batteryVoltageV !== undefined && currentTelemetry?.batteryVoltageV !== null ? `${currentTelemetry.batteryVoltageV} V` : 'Power'}
         >
           <DataRow label="Alternator / Battery Voltage" value={formatNum(currentTelemetry?.batteryVoltageV, 'V')} highlight />
           <DataRow label="OBD Port Voltage" value={formatNum(currentTelemetry?.obdVoltageV, 'V')} />
           <DataRow label="Backup Battery Health" value={formatNum(currentTelemetry?.backupBatteryPct, '%')} />
-          <DataRow label="Charging State" value={currentTelemetry?.chargingState || 'Normal'} badge={currentTelemetry?.batteryVoltageV > 13.0 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'} />
+          <DataRow label="Charging State" value={currentTelemetry?.chargingState || 'Normal'} badge={currentTelemetry?.batteryVoltageV > 13.0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' : 'bg-slate-100 text-slate-700'} />
           <DataRow label="Power Cut Alert" value="Normal (Connected)" />
-          <DataRow label="Ignition ACC State" value={currentTelemetry?.ignition ? 'IGNITION ON' : 'IGNITION OFF'} badge={currentTelemetry?.ignition ? 'bg-emerald-100 text-emerald-800 font-bold' : 'bg-slate-100 text-slate-700'} />
+          <DataRow label="Ignition ACC State" value={currentTelemetry?.ignition ? 'IGNITION ON' : 'IGNITION OFF'} badge={currentTelemetry?.ignition ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-200' : 'bg-slate-100 text-slate-700'} />
         </DiagnosticCard>
 
         {/* CARD 4: ⏱️ MILEAGE, RUN TIME & TIMERS */}
         <DiagnosticCard
           title="Mileage & Run Time"
-          icon={<Clock className="w-5 h-5 text-cyan-600" />}
+          icon={<Clock className="w-3.5 h-3.5 text-cyan-600" />}
           accentColor="cyan"
           badge={currentTelemetry?.clusterOdometerKm !== undefined && currentTelemetry?.clusterOdometerKm !== null ? `${currentTelemetry.clusterOdometerKm} km` : 'Odometers'}
         >
@@ -900,11 +900,11 @@ export default function ObdTerminalPage() {
         {/* CARD 5: ⚠️ DRIVER BEHAVIOR & ECU HEALTH */}
         <DiagnosticCard
           title="Driver Behavior & DTC"
-          icon={<ShieldAlert className="w-5 h-5 text-rose-600" />}
+          icon={<ShieldAlert className="w-3.5 h-3.5 text-rose-600" />}
           accentColor="rose"
           badge={currentTelemetry?.dtcCount === 0 ? '0 DTC Codes' : `${currentTelemetry?.dtcCount || 0} DTC`}
         >
-          <DataRow label="Check Engine (DTC Faults)" value={currentTelemetry?.dtcCount !== undefined && currentTelemetry?.dtcCount !== null ? `${currentTelemetry.dtcCount} Active Codes` : '0 Active Codes'} badge={currentTelemetry?.dtcCount > 0 ? 'bg-rose-100 text-rose-800 font-bold' : 'bg-emerald-50 text-emerald-700 font-semibold'} />
+          <DataRow label="Check Engine (DTC Faults)" value={currentTelemetry?.dtcCount !== undefined && currentTelemetry?.dtcCount !== null ? `${currentTelemetry.dtcCount} Active Codes` : '0 Active Codes'} badge={currentTelemetry?.dtcCount > 0 ? 'bg-rose-100 text-rose-800 font-bold' : 'bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200/50'} />
           <DataRow label="Rapid Acceleration Events" value={formatNum(currentTelemetry?.rapidAccelCount, 'events')} />
           <DataRow label="Harsh Braking Events" value={formatNum(currentTelemetry?.rapidDecelCount, 'events')} />
           <DataRow label="Harsh Cornering Events" value={formatNum(currentTelemetry?.harshCornerCount, 'events')} />
@@ -915,11 +915,11 @@ export default function ObdTerminalPage() {
         {/* CARD 6: 🛰️ GPS & TELEMETRY */}
         <DiagnosticCard
           title="GPS & Telematics"
-          icon={<Navigation className="w-5 h-5 text-sky-600" />}
+          icon={<Navigation className="w-3.5 h-3.5 text-sky-600" />}
           accentColor="sky"
           badge={currentTelemetry?.satellites !== undefined && currentTelemetry?.satellites !== null ? `${currentTelemetry.satellites} Sats` : 'Fix Status'}
         >
-          <DataRow label="GPS Fix Status" value={currentTelemetry?.gpsValid ? '3D Valid Fix' : 'No Fix'} badge={currentTelemetry?.gpsValid ? 'bg-emerald-100 text-emerald-800 font-bold' : 'bg-amber-100 text-amber-800'} />
+          <DataRow label="GPS Fix Status" value={currentTelemetry?.gpsValid ? '3D Valid Fix' : 'No Fix'} badge={currentTelemetry?.gpsValid ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-200' : 'bg-amber-100 text-amber-800'} />
           <DataRow label="GPS Ground Speed" value={formatNum(currentTelemetry?.gpsSpeedKmh, 'km/h')} highlight />
           <DataRow label="GNSS Satellites Tracked" value={formatNum(currentTelemetry?.satellites, 'Satellites')} />
           <DataRow label="Cellular Signal (RSSI)" value={currentTelemetry?.gsmSignal !== null && currentTelemetry?.gsmSignal !== undefined ? `${currentTelemetry.gsmSignal} / 31` : '—'} />
@@ -1122,30 +1122,36 @@ export default function ObdTerminalPage() {
 // ── SUBCOMPONENTS ────────────────────────────────────────────────────────
 
 function DiagnosticCard({ title, icon, accentColor, badge, children }) {
-  const accentBorders = {
-    emerald: 'border-t-emerald-500',
-    indigo: 'border-t-indigo-500',
-    amber: 'border-t-amber-500',
-    cyan: 'border-t-cyan-500',
-    rose: 'border-t-rose-500',
-    sky: 'border-t-sky-500',
+  const accentColors = {
+    emerald: { bar: 'from-emerald-500 to-teal-500', iconBg: 'bg-emerald-50 text-emerald-600', badge: 'bg-emerald-50/80 text-emerald-700 border-emerald-200/60' },
+    indigo: { bar: 'from-indigo-500 to-blue-500', iconBg: 'bg-indigo-50 text-indigo-600', badge: 'bg-indigo-50/80 text-indigo-700 border-indigo-200/60' },
+    amber: { bar: 'from-amber-500 to-orange-500', iconBg: 'bg-amber-50 text-amber-600', badge: 'bg-amber-50/80 text-amber-700 border-amber-200/60' },
+    cyan: { bar: 'from-cyan-500 to-blue-500', iconBg: 'bg-cyan-50 text-cyan-600', badge: 'bg-cyan-50/80 text-cyan-700 border-cyan-200/60' },
+    rose: { bar: 'from-rose-500 to-pink-500', iconBg: 'bg-rose-50 text-rose-600', badge: 'bg-rose-50/80 text-rose-700 border-rose-200/60' },
+    sky: { bar: 'from-sky-500 to-indigo-500', iconBg: 'bg-sky-50 text-sky-600', badge: 'bg-sky-50/80 text-sky-700 border-sky-200/60' },
   };
 
+  const style = accentColors[accentColor] || accentColors.indigo;
+
   return (
-    <div className={`bg-white rounded-2xl shadow-sm border border-slate-200/80 border-t-4 ${accentBorders[accentColor] || 'border-t-slate-400'} p-4 flex flex-col justify-between hover:shadow-md transition-shadow`}>
+    <div className="bg-white rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-slate-200/80 p-3.5 flex flex-col justify-between hover:shadow-md hover:border-slate-300 transition-all duration-200 relative overflow-hidden group">
+      {/* Sleek 3px top accent gradient line */}
+      <div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${style.bar}`} />
       <div>
-        <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-100">
+        <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            {icon}
-            <h3 className="text-sm font-bold text-slate-900 tracking-tight">{title}</h3>
+            <div className={`w-6 h-6 rounded-md ${style.iconBg} flex items-center justify-center shrink-0`}>
+              {icon}
+            </div>
+            <h3 className="text-xs font-bold text-slate-800 tracking-tight">{title}</h3>
           </div>
           {badge && (
-            <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+            <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded border ${style.badge}`}>
               {badge}
             </span>
           )}
         </div>
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-slate-100/60">
           {children}
         </div>
       </div>
@@ -1155,15 +1161,15 @@ function DiagnosticCard({ title, icon, accentColor, badge, children }) {
 
 function DataRow({ label, value, highlight = false, badge = null }) {
   return (
-    <div className="py-2 flex items-center justify-between text-xs gap-3">
-      <span className="text-slate-600 font-medium">{label}</span>
-      <div className="text-right">
+    <div className="py-1 flex items-center justify-between text-[11.5px] gap-2 px-1 -mx-1 rounded hover:bg-slate-50/80 transition-colors">
+      <span className="text-slate-500 font-medium truncate">{label}</span>
+      <div className="text-right shrink-0">
         {badge ? (
-          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${badge}`}>
+          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${badge}`}>
             {value}
           </span>
         ) : (
-          <span className={`font-mono tabular-nums ${highlight ? 'font-bold text-slate-900 text-[13px]' : 'text-slate-700 font-medium'}`}>
+          <span className={`font-mono tabular-nums ${highlight ? 'font-bold text-slate-900 text-[12px]' : 'text-slate-700 font-semibold'}`}>
             {value}
           </span>
         )}
