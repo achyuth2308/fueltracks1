@@ -255,6 +255,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
         { name: 'Organization', path: '/admin/organizations', icon: Briefcase, color: '#D97706', roles: ['superadmin', 'dealer'] },
         { name: 'Dealers', path: '/admin/dealers', icon: Building2, color: '#9333EA', roles: ['superadmin'] },
         { name: 'Terminal', path: '/admin/terminal', icon: Terminal, color: '#0D9488', roles: ['superadmin', 'dealer'] },
+        { name: 'OBD Terminal', path: '/admin/obd-terminal', icon: Cpu, color: '#2563EB', roles: ['superadmin', 'dealer'] },
         { name: 'Audit', path: '/admin/audit-logs', icon: ClipboardList, color: '#EA580C', roles: ['superadmin', 'dealer'] },
         { name: 'Archived Audit', path: '/admin/audit-logs?archived=true', icon: Archive, color: '#475569', roles: ['superadmin', 'dealer'] },
         {

@@ -71,6 +71,7 @@ import AlertsPage from './pages/user/AlertsPage';
 import TripManagerPage from './pages/user/TripManagerPage';
 import MiningRegistrationsAdminPage from './pages/admin/MiningRegistrationsAdminPage';
 import AdminTerminalPage from './pages/admin/AdminTerminalPage';
+import ObdTerminalPage from './pages/admin/ObdTerminalPage';
 import FuelWatcherPage from './pages/admin/FuelWatcherPage';
 import WhatsAppSettingsPage from './pages/admin/WhatsAppSettingsPage';
 import CertificateVerifyPage from './pages/CertificateVerifyPage';
@@ -164,6 +165,7 @@ function App() {
                   <Route path="whatsapp" element={<WhatsAppSettingsPage />} />
                   <Route path="mining-registrations" element={<MiningRegistrationsAdminPage />} />
                   <Route path="terminal" element={<AdminTerminalPage />} />
+                  <Route path="obd-terminal" element={<ObdTerminalPage />} />
                   <Route path="fuel-watcher" element={<FuelWatcherPage />} />
                   <Route path="fuel-overview" element={<FleetFuelOverviewPage />} />
                   <Route path="fuel-analytics" element={<FuelAnalyticsPage />} />

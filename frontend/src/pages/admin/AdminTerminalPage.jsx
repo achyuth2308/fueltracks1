@@ -328,6 +328,27 @@ const AdminTerminalPage = () => {
 
         {/* Live badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={() => navigate('/admin/obd-terminal')}
+            style={{
+              background: 'linear-gradient(135deg, #2563EB, #4F46E5)',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '6px 14px',
+              fontSize: '12px',
+              color: '#FFFFFF',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }}
+          >
+            <Cpu size={14} />
+            OBD Terminal
+          </button>
           {liveCount > 0 && (
             <div style={{
               background: 'rgba(34, 197, 94, 0.2)',
