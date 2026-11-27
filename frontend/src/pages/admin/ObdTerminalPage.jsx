@@ -249,10 +249,18 @@ export default function ObdTerminalPage() {
             tripFuelL: obdData.tripFuelLitres ?? null,
             instantFuelL100km: obdData.instantFuelL100km ?? null,
             avgFuelL100km: obdData.averageFuelL100km ?? null,
+            auxFuelL: item.fuel ?? parsedData.fuel ?? null,
+            fuelRailPressureKpa: obdData.fuelRailPressureKpa ?? null,
             engineRpm: item.rpm ?? parsedData.rpm ?? obdData.engineRpm ?? null,
             coolantTempC: item.coolant_temp ?? parsedData.coolantTemp ?? obdData.coolantTempCelsius ?? null,
             throttlePct: item.throttle ?? parsedData.throttle ?? obdData.throttlePercent ?? null,
+            engineLoadPct: obdData.calculatedEngineLoadPct ?? null,
+            intakeAirTempC: obdData.intakeAirTempCelsius ?? null,
+            manifoldPressureKpa: obdData.manifoldPressureKpa ?? null,
+            mafGps: obdData.massAirFlowGps ?? null,
             batteryVoltageV: item.voltage ?? parsedData.voltage ?? null,
+            obdVoltageV: obdData.obdVoltageVolts ?? item.voltage ?? null,
+            backupBatteryPct: obdData.backupBatteryPercent ?? null,
             gpsSpeedKmh: item.speed ?? parsedData.speed ?? null,
             clusterOdometerKm: obdData.totalOdometerKm ?? (item.odometer ? item.odometer / 10 : null) ?? null,
             ecuWheelSpeedKmh: obdData.obdSpeed ?? null,
@@ -275,7 +283,14 @@ export default function ObdTerminalPage() {
 
         setHistoryPackets(mapped);
         if (mapped.length > 0) {
-          setActivePacket(mapped[0]); // Select first packet to populate cards
+          // Prefer selecting a rich telemetry packet (with speed, RPM, or fuel data) over an idle heartbeat ping
+          const bestPkt = mapped.find(p => (
+            p.data?.packetType === 'LOCATION_OBD' ||
+            p.data?.packetType === 'TELEMETRY' ||
+            (p.data?.fuelRemainingL !== null && p.data?.fuelRemainingL !== undefined && p.data.fuelRemainingL > 0) ||
+            (p.data?.engineRpm !== null && p.data?.engineRpm !== undefined && p.data.engineRpm > 0)
+          )) || mapped[0];
+          setActivePacket(bestPkt);
         } else {
           setHistoryError(`No packets recorded for ${historyDate} between ${startTime} and ${endTime}.`);
         }
