@@ -766,7 +766,7 @@ const EditVehiclePage = () => {
               fuelMode: meta.fuelMode || 'Auto Calibrate',
               sensorCount: meta.sensorCount || '1',
               numberOfTank: meta.numberOfTank || '1',
-              fuelType: meta.fuelType || 'Analog',
+              fuelType: meta.fuelType || meta.fuelCalibration?.fuelType || 'LLS Fuel 1(Serial)',
               modeOfVehicle: meta.modeOfVehicle === 'Moving' ? 'Moving Vehicle' :
                              meta.modeOfVehicle === 'Stationary' ? 'Diesel Generator(DG)' :
                              (meta.modeOfVehicle || (
@@ -1624,7 +1624,7 @@ const EditVehiclePage = () => {
             label="Fuel Type"
             value={form.metadata.fuelType}
             onChange={e => updateMeta('fuelType', e.target.value)}
-            options={['Analog', 'Digital', 'Frequency', 'None', 'Diesel', 'Petrol', 'CNG']}
+            options={['LLS Fuel 1(Serial)', 'LLS Fuel 2', 'LLS Fuel 3', 'Jointech', 'Technoton', 'BLE Fuel Level 1', 'BLE Fuel Level 2', 'Analog', 'Analog 2', 'CAN-Bus / OBD-II', 'Digital', 'Frequency', 'None', 'Diesel', 'Petrol', 'CNG']}
             focused={focusedField === 'fType'}
             onFocus={() => setFocusedField('fType')}
             onBlur={() => setFocusedField(null)}

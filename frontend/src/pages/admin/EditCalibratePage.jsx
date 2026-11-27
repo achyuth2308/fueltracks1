@@ -14,7 +14,7 @@ import LiveFuelModal from '../../components/modals/LiveFuelModal';
 // ==============================================================================
 // TANK CALIBRATION BLOCK (OPTION A: REUSABLE PER-TANK COMPONENT)
 // ==============================================================================
-  const sensorTypeOptions = [
+  const directFuelTypeOptions = [
     { value: '', label: '-- Select --' },
     { value: 'Jointech', label: 'Jointech' },
     { value: 'Technoton', label: 'Technoton' }
@@ -65,6 +65,14 @@ import LiveFuelModal from '../../components/modals/LiveFuelModal';
     { value: 'No', label: 'No' }
   ];
 
+const ensurePointIds = (pts) => {
+  if (!Array.isArray(pts)) return [];
+  return pts.map((p, idx) => ({
+    ...p,
+    id: p.id || `pt-${idx}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+  }));
+};
+
 const TankCalibrationBlock = React.memo(({
   tankNum,
   initialData,
@@ -83,7 +91,13 @@ const TankCalibrationBlock = React.memo(({
   const [calibrateType, setCalibrateType] = useState(initialData?.calibrateType || "Auto");
   const [tankSize, setTankSize] = useState(initialData?.tankSize !== undefined && initialData.tankSize !== null ? String(initialData.tankSize) : "");
   const [modeOfVehicle, setModeOfVehicle] = useState(initialData?.modeOfVehicle || "");
-  const [fuelType, setFuelType] = useState(initialData?.fuelType || (tankNum === 2 ? "LLS Fuel 2" : "LLS Fuel 1(Serial)"));
+  const [fuelType, setFuelType] = useState(() => {
+    const rawFType = initialData?.fuelType;
+    if (initialData?.calibrateType === "Direct") {
+      return (rawFType === "Jointech" || rawFType === "Technoton") ? rawFType : "Jointech";
+    }
+    return rawFType || (tankNum === 2 ? "LLS Fuel 2" : "LLS Fuel 1(Serial)");
+  });
   const isAnalogMode = Boolean(fuelType && fuelType.toLowerCase().includes("analog"));
   const [minAdc, setMinAdc] = useState(initialData?.minAdc !== undefined && initialData.minAdc !== null ? String(initialData.minAdc) : "");
   const [maxAdc, setMaxAdc] = useState(initialData?.maxAdc !== undefined && initialData.maxAdc !== null ? String(initialData.maxAdc) : "");
@@ -95,7 +109,7 @@ const TankCalibrationBlock = React.memo(({
   const [widthMm, setWidthMm] = useState(initialData?.tankWidth || "");
   const [radiusMm, setRadiusMm] = useState(initialData?.tankRadius || "");
   const [sensorFormula, setSensorFormula] = useState(initialData?.sensorFormula || "Average");
-  const [calibrationPoints, setCalibrationPoints] = useState(Array.isArray(initialData?.calibrationPoints) ? initialData.calibrationPoints : []);
+  const [calibrationPoints, setCalibrationPoints] = useState(() => ensurePointIds(initialData?.calibrationPoints));
   const [directSensorType, setDirectSensorType] = useState(initialData?.directSensorType || (tankNum === 2 ? "BLE Fuel Level 2" : "BLE Fuel Level 1"));
   const [directUnit, setDirectUnit] = useState(initialData?.directUnit || "Litres");
   const [directMultiplier, setDirectMultiplier] = useState(initialData?.directMultiplier !== undefined && initialData.directMultiplier !== null ? String(initialData.directMultiplier) : "1.0");
@@ -119,10 +133,15 @@ const TankCalibrationBlock = React.memo(({
     setTankSensorsCount(loadedCount);
     const targetSensor = initialData.sensors?.[activeSensor] || initialData.sensors?.[1] || initialData;
     setSensorNumber(targetSensor?.sensorNumber || initialData.sensorNumber || "");
-    setCalibrateType(targetSensor?.calibrateType || initialData.calibrateType || "Auto");
+    const activeCalType = targetSensor?.calibrateType || initialData.calibrateType || "Auto";
+    setCalibrateType(activeCalType);
     setTankSize(initialData.tankSize !== undefined && initialData.tankSize !== null ? String(initialData.tankSize) : "");
     setModeOfVehicle(initialData.modeOfVehicle || "");
-    setFuelType(targetSensor?.fuelType || initialData.fuelType || (tankNum === 2 ? "LLS Fuel 2" : "LLS Fuel 1(Serial)"));
+    const rawLoadedFuelType = targetSensor?.fuelType || initialData.fuelType;
+    const finalLoadedFuelType = activeCalType === "Direct"
+      ? ((rawLoadedFuelType === "Jointech" || rawLoadedFuelType === "Technoton") ? rawLoadedFuelType : "Jointech")
+      : (rawLoadedFuelType || (tankNum === 2 ? "LLS Fuel 2" : "LLS Fuel 1(Serial)"));
+    setFuelType(finalLoadedFuelType);
     setMinAdc(targetSensor?.minAdc !== undefined && targetSensor?.minAdc !== null ? String(targetSensor.minAdc) : "");
     setMaxAdc(targetSensor?.maxAdc !== undefined && targetSensor?.maxAdc !== null ? String(targetSensor.maxAdc) : "");
     setFuelTankShape(initialData.fuelTankShape || "");
@@ -133,7 +152,7 @@ const TankCalibrationBlock = React.memo(({
     setWidthMm(initialData.tankWidth || "");
     setRadiusMm(initialData.tankRadius || "");
     setSensorFormula(initialData.sensorFormula || "Average");
-    setCalibrationPoints(Array.isArray(targetSensor?.calibrationPoints) ? targetSensor.calibrationPoints : (Array.isArray(initialData.calibrationPoints) ? initialData.calibrationPoints : []));
+    setCalibrationPoints(ensurePointIds(targetSensor?.calibrationPoints || initialData.calibrationPoints));
     setDirectSensorType(targetSensor?.directSensorType || initialData.directSensorType || (tankNum === 2 ? "BLE Fuel Level 2" : "BLE Fuel Level 1"));
     setDirectUnit(targetSensor?.directUnit || initialData.directUnit || "Litres");
     setDirectMultiplier(targetSensor?.directMultiplier !== undefined && targetSensor?.directMultiplier !== null ? String(targetSensor.directMultiplier) : "1.0");
@@ -295,9 +314,37 @@ const TankCalibrationBlock = React.memo(({
     if (lower.includes("analog")) {
       setMinAdc("0.00");
       setMaxAdc("5.00");
-    } else if (lower.includes("serial") || lower.includes("lls")) {
+    } else if (lower.includes("serial") || lower.includes("lls") || lower.includes("jointech") || lower.includes("technoton")) {
       setMinAdc("0");
       setMaxAdc("4095");
+    }
+    if (calibrateType === 'Direct') {
+      if (selectedType === 'Jointech') {
+        setDirectMultiplier('0.01');
+      } else if (selectedType === 'Technoton') {
+        setDirectMultiplier('0.1');
+      }
+    }
+    if (selectedType.includes("BLE")) {
+      setDirectSensorType(selectedType);
+    }
+  };
+
+  const handleCalibrateTypeChange = (newType) => {
+    setCalibrateType(newType);
+    if (newType === 'Direct') {
+      if (fuelType !== 'Jointech' && fuelType !== 'Technoton') {
+        setFuelType('Jointech');
+        setDirectMultiplier('0.01');
+      } else if (fuelType === 'Jointech' && (!directMultiplier || directMultiplier === '1.0')) {
+        setDirectMultiplier('0.01');
+      } else if (fuelType === 'Technoton' && (!directMultiplier || directMultiplier === '1.0')) {
+        setDirectMultiplier('0.1');
+      }
+    } else {
+      if (fuelType === 'Jointech' || fuelType === 'Technoton') {
+        setFuelType(tankNum === 2 ? 'LLS Fuel 2' : 'LLS Fuel 1(Serial)');
+      }
     }
   };
 
@@ -342,7 +389,7 @@ const TankCalibrationBlock = React.memo(({
     });
   };
 
-  const handleGetVolt = async (rowId) => {
+  const handleGetVolt = async (rowId, rowIndex) => {
     let currentV = vehicle;
     if (vehicle?.id || vehicle?._id) {
       try {
@@ -355,11 +402,13 @@ const TankCalibrationBlock = React.memo(({
     const isAnalogMode = fuelType && fuelType.toLowerCase().includes("analog");
     const metaVolt = parseFloat(currentV?.current_voltage ?? currentV?.voltage ?? currentV?.metadata?.fuelVolt);
     const liveVolt = !isNaN(metaVolt) ? metaVolt.toFixed(2) : "0.00";
-    const metaFreq = parseFloat(currentV?.metadata?.fuelFrequency ?? currentV?.metadata?.fuelEmptyAdc ?? currentV?.current_fuel);
+    const rawFreqVal = currentV?.fuelFrequency ?? currentV?.rawSensor1 ?? currentV?.raw_fuel ?? currentV?.fuel ?? currentV?.metadata?.fuelFrequency ?? currentV?.metadata?.fuelEmptyAdc ?? currentV?.current_fuel;
+    const metaFreq = parseFloat(rawFreqVal);
     const liveFreq = !isNaN(metaFreq) ? metaFreq.toFixed(2) : "0.00";
 
-    setCalibrationPoints(prev => prev.map(p => {
-      if (p.id === rowId) {
+    setCalibrationPoints(prev => prev.map((p, i) => {
+      const isMatch = (rowId && p.id && rowId !== 'undefined' && p.id === rowId) || (rowIndex !== undefined && i === rowIndex);
+      if (isMatch) {
         return {
           ...p,
           volt: isAnalogMode ? liveVolt : (p.volt || "0.00"),
@@ -371,12 +420,28 @@ const TankCalibrationBlock = React.memo(({
     }));
   };
 
-  const handleDeletePoint = (id) => {
-    setCalibrationPoints(prev => prev.filter(p => p.id !== id));
+  const handleDeletePoint = (id, rowIndex) => {
+    setCalibrationPoints(prev => prev.filter((p, i) => {
+      if (id && p.id && id !== 'undefined') {
+        return p.id !== id;
+      }
+      if (rowIndex !== undefined && rowIndex !== null) {
+        return i !== rowIndex;
+      }
+      return true;
+    }));
   };
 
-  const handleUpdatePoint = (id, field, value) => {
-    setCalibrationPoints(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+  const handleUpdatePoint = (id, field, value, rowIndex) => {
+    setCalibrationPoints(prev => prev.map((p, i) => {
+      const isMatch = (id && p.id && id !== 'undefined' && p.id === id) || (rowIndex !== undefined && i === rowIndex);
+      if (!isMatch) return p;
+      return {
+        ...p,
+        [field]: value,
+        adcValue: field === 'frequency' || field === 'volt' ? value : p.adcValue
+      };
+    }));
   };
 
   const handleExportExcel = () => {
@@ -526,7 +591,7 @@ const TankCalibrationBlock = React.memo(({
     const currentSensorSnapshot = {
       sensorType: fuelType && fuelType.includes("BLE") ? "BLE" : (fuelType && fuelType.includes("Analog") ? "Analog" : "Serial"),
       sensorNumber,
-      fuelType: calibrateType === "Direct" ? directSensorType : (fuelType || ""),
+      fuelType: fuelType || (activeSensor === 2 ? "LLS Fuel 2" : "LLS Fuel 1(Serial)"),
       calibrateType,
       minAdc,
       maxAdc,
@@ -554,7 +619,7 @@ const TankCalibrationBlock = React.memo(({
       setMaxAdc(targetSensor.maxAdc !== undefined ? String(targetSensor.maxAdc) : "");
       setDifferenceOfLtrs(targetSensor.differenceOfLtrs || "");
       setAddCount(targetSensor.addCount || "");
-      setCalibrationPoints(Array.isArray(targetSensor.calibrationPoints) ? targetSensor.calibrationPoints : []);
+      setCalibrationPoints(ensurePointIds(targetSensor.calibrationPoints));
       setDirectSensorType(targetSensor.directSensorType || (newSensorNum === 2 ? "BLE Fuel Level 2" : "BLE Fuel Level 1"));
       setDirectUnit(targetSensor.directUnit || "Litres");
       setDirectMultiplier(targetSensor.directMultiplier !== undefined ? String(targetSensor.directMultiplier) : "1.0");
@@ -586,28 +651,32 @@ const TankCalibrationBlock = React.memo(({
 
   // Sync snapshot with parent on any change
   useEffect(() => {
+    const effectiveFuelType = fuelType || (tankNum === 2 ? "LLS Fuel 2" : "LLS Fuel 1(Serial)");
+    const effectiveDirectSensorType = (fuelType && fuelType.includes("BLE")) ? fuelType : (directSensorType || (tankNum === 2 ? "BLE Fuel Level 2" : "BLE Fuel Level 1"));
+
     const currentSensorSnapshot = {
-      sensorType: fuelType && fuelType.includes("BLE") ? "BLE" : (fuelType && fuelType.includes("Analog") ? "Analog" : "Serial"),
+      sensorType: effectiveFuelType && effectiveFuelType.includes("BLE") ? "BLE" : (effectiveFuelType && effectiveFuelType.includes("Analog") ? "Analog" : "Serial"),
       sensorNumber,
-      fuelType: calibrateType === "Direct" ? directSensorType : (fuelType || "Analog"),
+      fuelType: effectiveFuelType,
       calibrateType,
       minAdc: minAdc !== "" ? parseFloat(minAdc) : "",
       maxAdc: maxAdc !== "" ? parseFloat(maxAdc) : "",
       differenceOfLtrs,
       addCount,
-      calibrationPoints: calibrationPoints.map(p => {
+      calibrationPoints: calibrationPoints.map((p, idx) => {
         const v = parseFloat(p.volt) || 0;
         const f = parseFloat(p.frequency) || 0;
-        const isAnalog = fuelType && fuelType.toLowerCase().includes("analog");
+        const isAnalog = effectiveFuelType && effectiveFuelType.toLowerCase().includes("analog");
         const adc = (isAnalog && v > 0) ? v : (f > 0 ? f : v);
         return {
+          id: p.id || `pt-${idx}`,
           litres: parseFloat(p.litres) || 0,
           volt: v,
           frequency: f,
           adcValue: adc
         };
       }),
-      directSensorType,
+      directSensorType: effectiveDirectSensorType,
       directUnit,
       directMultiplier: parseFloat(directMultiplier) || 1.0,
       directOffset: parseFloat(directOffset) || 0.0
@@ -714,7 +783,7 @@ const TankCalibrationBlock = React.memo(({
                 <button
                   key={type}
                   type="button"
-                  onClick={() => setCalibrateType(type)}
+                  onClick={() => handleCalibrateTypeChange(type)}
                   style={{
                     height: "30px",
                     padding: "0 14px",
@@ -893,7 +962,7 @@ const TankCalibrationBlock = React.memo(({
                     height="38px"
                     value={fuelType}
                     onChange={handleFuelTypeChange}
-                    options={fuelTypeOptions}
+                    options={calibrateType === 'Direct' ? directFuelTypeOptions : fuelTypeOptions}
                     placeholder="-- Select --"
                   />
                 </div>
@@ -993,7 +1062,7 @@ const TankCalibrationBlock = React.memo(({
                       <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                         {fuelType && fuelType.toLowerCase().includes('analog')
                           ? 'Minimum Voltage (V)'
-                          : (fuelType && (fuelType.toLowerCase().includes('serial') || fuelType.toLowerCase().includes('lls'))
+                          : (fuelType && (fuelType.toLowerCase().includes('serial') || fuelType.toLowerCase().includes('lls') || fuelType.toLowerCase().includes('jointech') || fuelType.toLowerCase().includes('technoton'))
                             ? 'Minimum RS Value'
                             : 'Minimum (RS value/Voltage)')}
                       </label>
@@ -1030,7 +1099,7 @@ const TankCalibrationBlock = React.memo(({
                       <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                         {fuelType && fuelType.toLowerCase().includes('analog')
                           ? 'Maximum Voltage (V)'
-                          : (fuelType && (fuelType.toLowerCase().includes('serial') || fuelType.toLowerCase().includes('lls'))
+                          : (fuelType && (fuelType.toLowerCase().includes('serial') || fuelType.toLowerCase().includes('lls') || fuelType.toLowerCase().includes('jointech') || fuelType.toLowerCase().includes('technoton'))
                             ? 'Maximum RS Value'
                             : 'Maximum (RS value/Voltage)')}
                       </label>
@@ -1957,7 +2026,7 @@ const TankCalibrationBlock = React.memo(({
                                     step="any"
                                     value={point.litres}
                                     onWheel={e => e.target.blur()}
-                                    onChange={e => handleUpdatePoint(point.id, 'litres', e.target.value)}
+                                    onChange={e => handleUpdatePoint(point.id, 'litres', e.target.value, index)}
                                     placeholder="0"
                                     style={{
                                       width: '100%',
@@ -1990,7 +2059,7 @@ const TankCalibrationBlock = React.memo(({
                                     <input
                                       type="text"
                                       value={point.volt !== undefined && point.volt !== null ? point.volt : ''}
-                                      onChange={e => handleUpdatePoint(point.id, 'volt', e.target.value)}
+                                      onChange={e => handleUpdatePoint(point.id, 'volt', e.target.value, index)}
                                       placeholder="Enter Volt (e.g. 0.85)"
                                       style={{
                                         width: '100%',
@@ -2024,7 +2093,7 @@ const TankCalibrationBlock = React.memo(({
                                     <input
                                       type="text"
                                       value={point.frequency !== undefined && point.frequency !== null ? point.frequency : (point.adcValue !== undefined && point.adcValue !== null ? point.adcValue : '')}
-                                      onChange={e => handleUpdatePoint(point.id, 'frequency', e.target.value)}
+                                      onChange={e => handleUpdatePoint(point.id, 'frequency', e.target.value, index)}
                                       placeholder="Enter Frequency (e.g. 155)"
                                       style={{
                                         width: '100%',
@@ -2057,7 +2126,7 @@ const TankCalibrationBlock = React.memo(({
                                                                     <div className="calib-action-btns" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                                     <button
                                       type="button"
-                                      onClick={() => handleGetVolt(point.id)}
+                                      onClick={() => handleGetVolt(point.id, index)}
                                       style={{
                                         background: '#fff7ed',
                                         color: '#ea580c',
@@ -2093,7 +2162,7 @@ const TankCalibrationBlock = React.memo(({
 
                                     <button
                                       type="button"
-                                      onClick={() => handleDeletePoint(point.id)}
+                                      onClick={() => handleDeletePoint(point.id, index)}
                                       style={{
                                         background: '#fef2f2',
                                         color: '#dc2626',
@@ -2725,7 +2794,7 @@ const EditCalibratePage = () => {
             minAdc: cal.minAdc !== undefined && cal.minAdc !== '' ? String(cal.minAdc) : (meta.fuelEmptyAdc !== undefined && meta.fuelEmptyAdc !== null ? String(meta.fuelEmptyAdc) : ''),
             maxAdc: cal.maxAdc !== undefined && cal.maxAdc !== '' ? String(cal.maxAdc) : (meta.fuelFullAdc !== undefined && meta.fuelFullAdc !== null ? String(meta.fuelFullAdc) : ''),
             calibrationPoints: Array.isArray(cal.calibrationPoints) ? cal.calibrationPoints : [],
-            directSensorType: cal.directSensorType || cal.fuelType || 'BLE Fuel Level 1',
+            directSensorType: cal.directSensorType || (cal.fuelType && cal.fuelType.includes('BLE') ? cal.fuelType : 'BLE Fuel Level 1'),
             directUnit: cal.directUnit || 'Litres',
             directMultiplier: cal.directMultiplier !== undefined ? String(cal.directMultiplier) : '1.0',
             directOffset: cal.directOffset !== undefined ? String(cal.directOffset) : '0.0'
@@ -2747,7 +2816,7 @@ const EditCalibratePage = () => {
           tankRadius: cal.tankRadius ?? '',
           calibrateType: cal.calibrateType ?? fuelCfg.calibrateType ?? 'Auto',
           calibrationPoints: Array.isArray(cal.calibrationPoints) ? cal.calibrationPoints : [],
-          directSensorType: cal.directSensorType ?? cal.fuelType ?? 'BLE Fuel Level 1',
+          directSensorType: cal.directSensorType || (cal.fuelType && cal.fuelType.includes('BLE') ? cal.fuelType : 'BLE Fuel Level 1'),
           directUnit: cal.directUnit ?? 'Litres',
           directMultiplier: cal.directMultiplier !== undefined ? String(cal.directMultiplier) : '1.0',
           directOffset: cal.directOffset !== undefined ? String(cal.directOffset) : '0.0',
@@ -2849,7 +2918,7 @@ const EditCalibratePage = () => {
         tankWidth: tank1Data.tankWidth || '',
         tankRadius: tank1Data.tankRadius || '',
         calibrationPoints: tank1Data.calibrationPoints || [],
-        directSensorType: tank1Data.directSensorType || 'BLE Fuel Level 1',
+        directSensorType: tank1Data.directSensorType || (tank1Data.fuelType && tank1Data.fuelType.includes('BLE') ? tank1Data.fuelType : 'BLE Fuel Level 1'),
         directUnit: tank1Data.directUnit || 'Litres',
         directMultiplier: tank1Data.directMultiplier || 1.0,
         directOffset: tank1Data.directOffset || 0.0,
