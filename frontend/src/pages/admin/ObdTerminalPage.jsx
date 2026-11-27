@@ -157,6 +157,81 @@ export default function ObdTerminalPage() {
     };
   }, [selectedVehicle?.id, joinVehicleRoom, leaveVehicleRoom]);
 
+  // Automatically preload latest known packet so cards NEVER start with blank dashes (—)
+  useEffect(() => {
+    if (!selectedVehicle) return;
+    const vehicleIdentifier = selectedVehicle.id || selectedVehicle.imei;
+
+    let isMounted = true;
+    axiosInstance.get(`/api/vehicles/${vehicleIdentifier}/messages`, { params: { limit: 10 } })
+      .then(res => {
+        if (!isMounted || !res.data?.success) return;
+        const rawList = res.data.data || [];
+        if (rawList.length === 0) return;
+
+        const mapped = rawList.map(item => {
+          const rawHex = item.raw_hex || item.raw || item.raw_packet || '';
+          let parsed = null;
+          if (rawHex) parsed = parseObdPacket(rawHex);
+
+          const obdData = item.obd_data || item.parsed_data?.obdData || item.obdData || {};
+          const parsedData = typeof item.parsed_data === 'object' ? item.parsed_data : {};
+
+          const fallbackData = {
+            ...item,
+            ...parsedData,
+            fuelRemainingL: obdData.fuelRemainingLitres ?? item.fuel ?? parsedData.fuel ?? null,
+            totalFuelL: obdData.totalFuelLitres ?? null,
+            tripFuelL: obdData.tripFuelLitres ?? null,
+            instantFuelL100km: obdData.instantFuelL100km ?? null,
+            avgFuelL100km: obdData.averageFuelL100km ?? null,
+            auxFuelL: item.fuel ?? parsedData.fuel ?? null,
+            fuelRailPressureKpa: obdData.fuelRailPressureKpa ?? null,
+            engineRpm: item.rpm ?? parsedData.rpm ?? obdData.engineRpm ?? null,
+            coolantTempC: item.coolant_temp ?? parsedData.coolantTemp ?? obdData.coolantTempCelsius ?? null,
+            throttlePct: item.throttle ?? parsedData.throttle ?? obdData.throttlePercent ?? null,
+            engineLoadPct: obdData.calculatedEngineLoadPct ?? null,
+            intakeAirTempC: obdData.intakeAirTempCelsius ?? null,
+            manifoldPressureKpa: obdData.manifoldPressureKpa ?? null,
+            mafGps: obdData.massAirFlowGps ?? null,
+            batteryVoltageV: item.voltage ?? parsedData.voltage ?? null,
+            obdVoltageV: obdData.obdVoltageVolts ?? item.voltage ?? null,
+            backupBatteryPct: obdData.backupBatteryPercent ?? null,
+            gpsSpeedKmh: item.speed ?? parsedData.speed ?? null,
+            clusterOdometerKm: obdData.totalOdometerKm ?? (item.odometer ? item.odometer / 10 : null) ?? null,
+            ecuWheelSpeedKmh: obdData.obdSpeed ?? null,
+            ignition: item.ignition ?? parsedData.ignition ?? false,
+            satellites: item.satellites ?? parsedData.satellites ?? null,
+            gsmSignal: item.gsm_signal ?? parsedData.gsmSignal ?? null,
+            lat: item.lat ?? parsedData.lat ?? null,
+            lng: item.lng ?? parsedData.lng ?? null
+          };
+
+          const packetTime = item.device_time ? new Date(item.device_time) : (item.received_at ? new Date(item.received_at) : new Date());
+          return {
+            id: item.id || `${packetTime.getTime()}_${Math.random()}`,
+            time: packetTime,
+            rawHex: rawHex,
+            data: parsed || fallbackData,
+            source: 'LAST_KNOWN'
+          };
+        });
+
+        const bestPkt = mapped.find(p => (
+          p.data?.packetType === 'LOCATION_OBD' ||
+          p.data?.packetType === 'TELEMETRY' ||
+          (p.data?.fuelRemainingL !== null && p.data?.fuelRemainingL !== undefined && p.data.fuelRemainingL > 0) ||
+          (p.data?.engineRpm !== null && p.data?.engineRpm !== undefined && p.data.engineRpm > 0)
+        )) || mapped[0];
+
+        setActivePacket(prev => (prev && prev.source === 'LIVE') ? prev : bestPkt);
+        setLivePackets(prev => prev.length === 0 ? mapped.slice(0, 10) : prev);
+      })
+      .catch(e => console.warn('Could not preload latest packet:', e));
+
+    return () => { isMounted = false; };
+  }, [selectedVehicle?.id]);
+
   // Listen to live WebSocket `raw:update`
   useEffect(() => {
     if (!socket || !selectedVehicle || terminalMode !== 'LIVE') return;
@@ -644,8 +719,12 @@ export default function ObdTerminalPage() {
       {activePacket && (
         <div className="bg-indigo-50/70 border border-indigo-200/80 rounded-xl px-4 py-2.5 mb-6 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 text-indigo-900 font-medium">
-            <span className="px-2 py-0.5 rounded bg-indigo-600 text-white font-bold text-[10px] uppercase">
-              {activePacket.source === 'LIVE' ? 'Live Telemetry' : 'Historical Packet'}
+            <span className={`px-2 py-0.5 rounded text-white font-bold text-[10px] uppercase ${
+              activePacket.source === 'LIVE' 
+                ? 'bg-emerald-600' 
+                : (activePacket.source === 'LAST_KNOWN' ? 'bg-amber-600' : 'bg-indigo-600')
+            }`}>
+              {activePacket.source === 'LIVE' ? '● Live Telemetry' : (activePacket.source === 'LAST_KNOWN' ? '⚡ Last Known State' : 'Historical Packet')}
             </span>
             <span>Displaying decoded data from:</span>
             <span className="font-mono font-bold text-indigo-950">
@@ -691,6 +770,7 @@ export default function ObdTerminalPage() {
             
             <DataRow 
               label="Current Fuel in Tank (Remaining)" 
+              description="Liquid fuel available in tank right now (reads 0 L when engine is turned off)"
               value={formatNum(rawRemainingL, 'Litres')} 
               highlight 
               badge={
@@ -726,12 +806,13 @@ export default function ObdTerminalPage() {
             
             <DataRow 
               label="Tank Level Percentage" 
+              description="Dashboard fuel gauge needle position (0% empty to 100% full)"
               value={
                 effectivePct !== null 
                   ? `${effectivePct} %` 
                   : (currentTelemetry?.fuelLevelPct != null && currentTelemetry?.fuelLevelPct > 0 
                       ? `${currentTelemetry.fuelLevelPct} %` 
-                      : (rawRemainingL !== null && rawRemainingL !== undefined ? `${rawRemainingL} L (PID 0x000D)` : '—'))
+                      : (rawRemainingL !== null && rawRemainingL !== undefined ? `${rawRemainingL} L` : '—'))
               } 
               badge={
                 effectivePct !== null
@@ -752,10 +833,12 @@ export default function ObdTerminalPage() {
 
             <DataRow 
               label="Trip Fuel Burned (Current Trip)" 
+              description="Fuel consumed by engine injectors during this current trip session"
               value={formatNum(currentTelemetry?.tripFuelL, 'Litres')} 
             />
             <DataRow 
               label="Lifetime Fuel Burned (Engine Total)" 
+              description="Total cumulative fuel ever burned by this car since new (Fuel Odometer)"
               value={formatNum(currentTelemetry?.totalFuelL, 'Litres')} 
               highlight 
               badge="bg-amber-50 text-amber-800 font-semibold"
@@ -764,10 +847,26 @@ export default function ObdTerminalPage() {
 
           {/* Section C: Economy & Pressures */}
           <div>
-            <DataRow label="Instant Fuel Burn" value={formatNum(currentTelemetry?.instantFuelL100km, 'L/100km')} />
-            <DataRow label="Average Fuel Economy" value={formatNum(currentTelemetry?.avgFuelL100km, 'L/100km')} />
-            <DataRow label="Auxiliary Tank (Tag 02)" value={formatNum(currentTelemetry?.auxFuelL, 'Litres')} />
-            <DataRow label="Fuel Rail Pressure" value={formatNum(currentTelemetry?.fuelRailPressureKpa, 'kPa')} />
+            <DataRow 
+              label="Instant Fuel Burn" 
+              description="Current fuel consumption rate right now at this exact second"
+              value={formatNum(currentTelemetry?.instantFuelL100km, 'L/100km')} 
+            />
+            <DataRow 
+              label="Average Fuel Economy" 
+              description="Overall driving fuel mileage efficiency over recent trips"
+              value={formatNum(currentTelemetry?.avgFuelL100km, 'L/100km')} 
+            />
+            <DataRow 
+              label="Auxiliary Tank (Tag 02)" 
+              description="Reading from external secondary tank or rod sensor if installed"
+              value={formatNum(currentTelemetry?.auxFuelL, 'Litres')} 
+            />
+            <DataRow 
+              label="Fuel Rail Pressure" 
+              description="Hydraulic pressure of the fuel pump feeding engine injectors"
+              value={formatNum(currentTelemetry?.fuelRailPressureKpa, 'kPa')} 
+            />
           </div>
         </DiagnosticCard>
 
@@ -778,14 +877,48 @@ export default function ObdTerminalPage() {
           accentColor="indigo"
           badge={currentTelemetry?.engineRpm !== undefined && currentTelemetry?.engineRpm !== null ? `${currentTelemetry.engineRpm} RPM` : 'Live CAN'}
         >
-          <DataRow label="Engine RPM" value={formatNum(currentTelemetry?.engineRpm, 'RPM')} highlight />
-          <DataRow label="ECU Wheel Speed" value={formatNum(currentTelemetry?.ecuWheelSpeedKmh, 'km/h')} />
-          <DataRow label="Throttle / Pedal Position" value={formatNum(currentTelemetry?.throttlePct, '%')} />
-          <DataRow label="Calculated Engine Load" value={formatNum(currentTelemetry?.engineLoadPct, '%')} />
-          <DataRow label="Coolant Temperature" value={formatNum(currentTelemetry?.coolantTempC, '°C')} highlight />
-          <DataRow label="Intake Air Temperature" value={formatNum(currentTelemetry?.intakeAirTempC, '°C')} />
-          <DataRow label="Manifold Pressure (MAP)" value={formatNum(currentTelemetry?.manifoldPressureKpa, 'kPa')} />
-          <DataRow label="Mass Air Flow (MAF)" value={formatNum(currentTelemetry?.mafGps, 'g/s')} />
+          <DataRow 
+            label="Engine RPM" 
+            description="Engine speed (0 when parked, 700–900 when idling, 2000+ driving)"
+            value={formatNum(currentTelemetry?.engineRpm, 'RPM')} 
+            highlight 
+          />
+          <DataRow 
+            label="ECU Wheel Speed" 
+            description="True vehicle road speed measured directly from the car's wheels"
+            value={formatNum(currentTelemetry?.ecuWheelSpeedKmh, 'km/h')} 
+          />
+          <DataRow 
+            label="Throttle / Pedal Position" 
+            description="How hard the driver is pressing down the accelerator pedal (0–100%)"
+            value={formatNum(currentTelemetry?.throttlePct, '%')} 
+          />
+          <DataRow 
+            label="Calculated Engine Load" 
+            description="How hard the engine is working (percentage of maximum available power)"
+            value={formatNum(currentTelemetry?.engineLoadPct, '%')} 
+          />
+          <DataRow 
+            label="Coolant Temperature" 
+            description="Engine operating temperature (healthy normal is 80°C to 95°C)"
+            value={formatNum(currentTelemetry?.coolantTempC, '°C')} 
+            highlight 
+          />
+          <DataRow 
+            label="Intake Air Temperature" 
+            description="Temperature of the fresh outside air entering the engine"
+            value={formatNum(currentTelemetry?.intakeAirTempC, '°C')} 
+          />
+          <DataRow 
+            label="Manifold Pressure (MAP)" 
+            description="Air intake pressure inside engine manifold (air intake health)"
+            value={formatNum(currentTelemetry?.manifoldPressureKpa, 'kPa')} 
+          />
+          <DataRow 
+            label="Mass Air Flow (MAF)" 
+            description="Volume of fresh air entering engine cylinders every second"
+            value={formatNum(currentTelemetry?.mafGps, 'g/s')} 
+          />
         </DiagnosticCard>
 
         {/* CARD 3: 🔋 BATTERY & ELECTRICAL SYSTEMS */}
@@ -795,12 +928,39 @@ export default function ObdTerminalPage() {
           accentColor="amber"
           badge={currentTelemetry?.batteryVoltageV !== undefined && currentTelemetry?.batteryVoltageV !== null ? `${currentTelemetry.batteryVoltageV} V` : 'Power'}
         >
-          <DataRow label="Alternator / Battery Voltage" value={formatNum(currentTelemetry?.batteryVoltageV, 'V')} highlight />
-          <DataRow label="OBD Port Voltage" value={formatNum(currentTelemetry?.obdVoltageV, 'V')} />
-          <DataRow label="Backup Battery Health" value={formatNum(currentTelemetry?.backupBatteryPct, '%')} />
-          <DataRow label="Charging State" value={currentTelemetry?.chargingState || 'Normal'} badge={currentTelemetry?.batteryVoltageV > 13.0 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'} />
-          <DataRow label="Power Cut Alert" value="Normal (Connected)" />
-          <DataRow label="Ignition ACC State" value={currentTelemetry?.ignition ? 'IGNITION ON' : 'IGNITION OFF'} badge={currentTelemetry?.ignition ? 'bg-emerald-100 text-emerald-800 font-bold' : 'bg-slate-100 text-slate-700'} />
+          <DataRow 
+            label="Alternator / Battery Voltage" 
+            description="Car battery health (12V+ parked, 13.5V–14.5V when alternator charges)"
+            value={formatNum(currentTelemetry?.batteryVoltageV, 'V')} 
+            highlight 
+          />
+          <DataRow 
+            label="OBD Port Voltage" 
+            description="Power voltage delivered directly to tracker plug under steering wheel"
+            value={formatNum(currentTelemetry?.obdVoltageV, 'V')} 
+          />
+          <DataRow 
+            label="Backup Battery Health" 
+            description="Tracker's internal emergency backup battery percentage"
+            value={formatNum(currentTelemetry?.backupBatteryPct, '%')} 
+          />
+          <DataRow 
+            label="Charging State" 
+            description="Confirms whether car alternator is actively charging the battery"
+            value={currentTelemetry?.chargingState || 'Normal'} 
+            badge={currentTelemetry?.batteryVoltageV > 13.0 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'} 
+          />
+          <DataRow 
+            label="Power Cut Alert" 
+            description="Alerts instantly if someone unplugs or tampers with the OBD tracker"
+            value="Normal (Connected)" 
+          />
+          <DataRow 
+            label="Ignition ACC State" 
+            description="Shows whether the driver has turned the car key ON or OFF"
+            value={currentTelemetry?.ignition ? 'IGNITION ON' : 'IGNITION OFF'} 
+            badge={currentTelemetry?.ignition ? 'bg-emerald-100 text-emerald-800 font-bold' : 'bg-slate-100 text-slate-700'} 
+          />
         </DiagnosticCard>
 
         {/* CARD 4: ⏱️ MILEAGE, RUN TIME & TIMERS */}
@@ -810,12 +970,37 @@ export default function ObdTerminalPage() {
           accentColor="cyan"
           badge={currentTelemetry?.clusterOdometerKm !== undefined && currentTelemetry?.clusterOdometerKm !== null ? `${currentTelemetry.clusterOdometerKm} km` : 'Odometers'}
         >
-          <DataRow label="Cluster Total Odometer" value={formatNum(currentTelemetry?.clusterOdometerKm, 'km')} highlight />
-          <DataRow label="GPS Total Odometer" value={formatNum(currentTelemetry?.gpsOdometerKm, 'km')} />
-          <DataRow label="Current Trip Distance" value={formatNum(currentTelemetry?.tripDistanceKm, 'km')} />
-          <DataRow label="Total Engine Run Time" value={formatSeconds(currentTelemetry?.totalEngineRunTimeSec)} />
-          <DataRow label="Engine Idling Duration" value={formatSeconds(currentTelemetry?.engineIdleTimeSec)} />
-          <DataRow label="Continuous Driving Duration" value={formatSeconds(currentTelemetry?.continuousDriveTimeSec)} />
+          <DataRow 
+            label="Cluster Total Odometer" 
+            description="Total car mileage shown on the physical dashboard speedometer"
+            value={formatNum(currentTelemetry?.clusterOdometerKm, 'km')} 
+            highlight 
+          />
+          <DataRow 
+            label="GPS Total Odometer" 
+            description="Total vehicle distance calculated from satellite tracking"
+            value={formatNum(currentTelemetry?.gpsOdometerKm, 'km')} 
+          />
+          <DataRow 
+            label="Current Trip Distance" 
+            description="Distance driven on this specific driving session"
+            value={formatNum(currentTelemetry?.tripDistanceKm, 'km')} 
+          />
+          <DataRow 
+            label="Total Engine Run Time" 
+            description="Total lifetime hours and minutes the engine has been running"
+            value={formatSeconds(currentTelemetry?.totalEngineRunTimeSec)} 
+          />
+          <DataRow 
+            label="Engine Idling Duration" 
+            description="Time parked with engine left running (wasting fuel)"
+            value={formatSeconds(currentTelemetry?.engineIdleTimeSec)} 
+          />
+          <DataRow 
+            label="Continuous Driving Duration" 
+            description="Non-stop driving time without taking a resting break"
+            value={formatSeconds(currentTelemetry?.continuousDriveTimeSec)} 
+          />
         </DiagnosticCard>
 
         {/* CARD 5: ⚠️ DRIVER BEHAVIOR & ECU HEALTH */}
@@ -825,12 +1010,37 @@ export default function ObdTerminalPage() {
           accentColor="rose"
           badge={currentTelemetry?.dtcCount === 0 ? '0 DTC Codes' : `${currentTelemetry?.dtcCount || 0} DTC`}
         >
-          <DataRow label="Check Engine (DTC Faults)" value={currentTelemetry?.dtcCount !== undefined && currentTelemetry?.dtcCount !== null ? `${currentTelemetry.dtcCount} Active Codes` : '0 Active Codes'} badge={currentTelemetry?.dtcCount > 0 ? 'bg-rose-100 text-rose-800 font-bold' : 'bg-emerald-50 text-emerald-700 font-semibold'} />
-          <DataRow label="Rapid Acceleration Events" value={formatNum(currentTelemetry?.rapidAccelCount, 'events')} />
-          <DataRow label="Harsh Braking Events" value={formatNum(currentTelemetry?.rapidDecelCount, 'events')} />
-          <DataRow label="Harsh Cornering Events" value={formatNum(currentTelemetry?.harshCornerCount, 'events')} />
-          <DataRow label="Chassis VIN Code" value={currentTelemetry?.vin || 'Auto-Read from ECU'} />
-          <DataRow label="CAN Protocol Standard" value="ISO 15765-4 (CAN 11-bit)" />
+          <DataRow 
+            label="Check Engine (DTC Faults)" 
+            description="Engine diagnostic trouble codes (warns of engine or sensor faults)"
+            value={currentTelemetry?.dtcCount !== undefined && currentTelemetry?.dtcCount !== null ? `${currentTelemetry.dtcCount} Active Codes` : '0 Active Codes'} 
+            badge={currentTelemetry?.dtcCount > 0 ? 'bg-rose-100 text-rose-800 font-bold' : 'bg-emerald-50 text-emerald-700 font-semibold'} 
+          />
+          <DataRow 
+            label="Rapid Acceleration Events" 
+            description="Count of sudden aggressive pedal stomps or speeding bursts"
+            value={formatNum(currentTelemetry?.rapidAccelCount, 'events')} 
+          />
+          <DataRow 
+            label="Harsh Braking Events" 
+            description="Count of sudden emergency stops or hard braking incidents"
+            value={formatNum(currentTelemetry?.rapidDecelCount, 'events')} 
+          />
+          <DataRow 
+            label="Harsh Cornering Events" 
+            description="Count of sharp aggressive turns taken at dangerous speeds"
+            value={formatNum(currentTelemetry?.harshCornerCount, 'events')} 
+          />
+          <DataRow 
+            label="Chassis VIN Code" 
+            description="Vehicle's unique 17-character chassis serial number from ECU"
+            value={currentTelemetry?.vin || 'Auto-Read from ECU'} 
+          />
+          <DataRow 
+            label="CAN Protocol Standard" 
+            description="Digital communication standard used by the car's computer"
+            value="ISO 15765-4 (CAN 11-bit)" 
+          />
         </DiagnosticCard>
 
         {/* CARD 6: 🛰️ GPS & TELEMETRY */}
@@ -840,13 +1050,43 @@ export default function ObdTerminalPage() {
           accentColor="sky"
           badge={currentTelemetry?.satellites !== undefined && currentTelemetry?.satellites !== null ? `${currentTelemetry.satellites} Sats` : 'Fix Status'}
         >
-          <DataRow label="GPS Fix Status" value={currentTelemetry?.gpsValid ? '3D Valid Fix' : 'No Fix'} badge={currentTelemetry?.gpsValid ? 'bg-emerald-100 text-emerald-800 font-bold' : 'bg-amber-100 text-amber-800'} />
-          <DataRow label="GPS Ground Speed" value={formatNum(currentTelemetry?.gpsSpeedKmh, 'km/h')} highlight />
-          <DataRow label="GNSS Satellites Tracked" value={formatNum(currentTelemetry?.satellites, 'Satellites')} />
-          <DataRow label="Cellular Signal (RSSI)" value={currentTelemetry?.gsmSignal !== null && currentTelemetry?.gsmSignal !== undefined ? `${currentTelemetry.gsmSignal} / 31` : '—'} />
-          <DataRow label="Coordinates (Lat, Lng)" value={currentTelemetry?.lat && currentTelemetry?.lng ? `${Number(currentTelemetry.lat).toFixed(6)}, ${Number(currentTelemetry.lng).toFixed(6)}` : '—'} />
-          <DataRow label="Heading & Altitude" value={currentTelemetry?.headingDeg !== null && currentTelemetry?.headingDeg !== undefined ? `${currentTelemetry.headingDeg}° (${currentTelemetry.altitudeM || 0}m)` : '—'} />
-          <DataRow label="Device UTC Timestamp" value={currentTelemetry?.deviceTimeStr || '—'} />
+          <DataRow 
+            label="GPS Fix Status" 
+            description="Satellite signal lock quality for accurate map location"
+            value={currentTelemetry?.gpsValid ? '3D Valid Fix' : 'No Fix'} 
+            badge={currentTelemetry?.gpsValid ? 'bg-emerald-100 text-emerald-800 font-bold' : 'bg-amber-100 text-amber-800'} 
+          />
+          <DataRow 
+            label="GPS Ground Speed" 
+            description="Vehicle road speed calculated by orbiting satellites"
+            value={formatNum(currentTelemetry?.gpsSpeedKmh, 'km/h')} 
+            highlight 
+          />
+          <DataRow 
+            label="GNSS Satellites Tracked" 
+            description="Number of active navigation satellites connected to tracker"
+            value={formatNum(currentTelemetry?.satellites, 'Satellites')} 
+          />
+          <DataRow 
+            label="Cellular Signal (RSSI)" 
+            description="SIM card mobile network reception strength (out of 31)"
+            value={currentTelemetry?.gsmSignal !== null && currentTelemetry?.gsmSignal !== undefined ? `${currentTelemetry.gsmSignal} / 31` : '—'} 
+          />
+          <DataRow 
+            label="Coordinates (Lat, Lng)" 
+            description="Exact physical latitude and longitude on the map"
+            value={currentTelemetry?.lat && currentTelemetry?.lng ? `${Number(currentTelemetry.lat).toFixed(6)}, ${Number(currentTelemetry.lng).toFixed(6)}` : '—'} 
+          />
+          <DataRow 
+            label="Heading & Altitude" 
+            description="Compass direction facing and elevation above sea level"
+            value={currentTelemetry?.headingDeg !== null && currentTelemetry?.headingDeg !== undefined ? `${currentTelemetry.headingDeg}° (${currentTelemetry.altitudeM || 0}m)` : '—'} 
+          />
+          <DataRow 
+            label="Device UTC Timestamp" 
+            description="Exact recorded timestamp transmitted by the tracker"
+            value={currentTelemetry?.deviceTimeStr || '—'} 
+          />
         </DiagnosticCard>
 
       </div>
@@ -1074,11 +1314,18 @@ function DiagnosticCard({ title, icon, accentColor, badge, children }) {
   );
 }
 
-function DataRow({ label, value, highlight = false, badge = null }) {
+function DataRow({ label, description, value, highlight = false, badge = null }) {
   return (
-    <div className="py-2 flex items-center justify-between text-xs gap-3">
-      <span className="text-slate-600 font-medium">{label}</span>
-      <div className="text-right">
+    <div className="py-2.5 flex items-start justify-between text-xs gap-3 hover:bg-slate-50/60 rounded-lg px-1.5 -mx-1.5 transition-colors">
+      <div className="flex flex-col pr-2 min-w-0">
+        <span className="text-slate-800 font-medium leading-tight">{label}</span>
+        {description && (
+          <span className="text-[10px] text-slate-400 font-normal leading-normal mt-0.5">
+            {description}
+          </span>
+        )}
+      </div>
+      <div className="text-right flex-shrink-0 pt-0.5">
         {badge ? (
           <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${badge}`}>
             {value}
