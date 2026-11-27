@@ -339,7 +339,7 @@ function parseB20Frame(frame) {
 
             // Sub-tag 0x0002: Speed
             if (subTag === 0x0002 && subLen >= 2) {
-              obd.obdSpeed = subVal.readUInt16BE(0);
+              obd.obdSpeed = Number((subVal.readUInt16BE(0) / 10).toFixed(1));
             }
             // Sub-tag 0x0003: Engine RPM
             else if (subTag === 0x0003 && subLen >= 2) {
@@ -352,9 +352,13 @@ function parseB20Frame(frame) {
               if (odo > 0) parsed.odometer = odo;
               obd.totalOdometerKm = odo;
             }
-            // Sub-tag 0x0006: Total Fuel (0.1 L)
+            // Sub-tag 0x0006: Instant Fuel Consumption (0.1 L/100km)
             else if (subTag === 0x0006 && subLen >= 2) {
-              obd.totalFuelLitres = Number((subVal.readUInt16BE(0) / 10).toFixed(1));
+              obd.instantFuelL100km = Number((subVal.readUInt16BE(0) / 10).toFixed(1));
+            }
+            // Sub-tag 0x0007: Average Fuel Economy (0.1 L/100km)
+            else if (subTag === 0x0007 && subLen >= 2) {
+              obd.averageFuelL100km = Number((subVal.readUInt16BE(0) / 10).toFixed(1));
             }
             // Sub-tag 0x0008: Throttle %
             else if (subTag === 0x0008 && subLen >= 1) {
@@ -363,6 +367,27 @@ function parseB20Frame(frame) {
             // Sub-tag 0x0009: Coolant Temperature (°C, offset -40)
             else if (subTag === 0x0009 && subLen >= 2) {
               obd.coolantTempCelsius = subVal.readUInt16BE(0) - 40;
+            }
+            // Sub-tag 0x000D: Fuel Tank Remaining (0.01 Litres from CAN-bus ECU)
+            else if (subTag === 0x000D && subLen >= 2) {
+              const remainingL = Number((subVal.readUInt16BE(0) / 100).toFixed(2));
+              obd.fuelRemainingLitres = remainingL;
+              if (remainingL > 0) {
+                parsed.fuel = remainingL; // Authoritative CAN fuel level
+              }
+            }
+            // Sub-tag 0x000E: Fuel Tank Level (%)
+            else if (subTag === 0x000E && subLen >= 1) {
+              const fPct = subVal[0];
+              if (fPct > 0) obd.fuelLevelPercent = fPct;
+            }
+            // Sub-tag 0x0102: Trip Fuel Consumed (0.01 Litres)
+            else if (subTag === 0x0102 && subLen >= 2) {
+              obd.tripFuelLitres = Number((subVal.readUInt16BE(0) / 100).toFixed(2));
+            }
+            // Sub-tag 0x0103: Total Cumulative Lifetime Fuel Consumed (1 Litre)
+            else if (subTag === 0x0103 && subLen >= 4) {
+              obd.totalFuelLitres = subVal.readUInt32BE(0);
             }
           }
         }
