@@ -63,11 +63,14 @@ const VehicleController = {
     try {
       const result = await db.query(`
         SELECT v.id as vehicle_id,
-               COALESCE(vls.today_distance, 0) as cdist,
+               CASE
+                 WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0)
+                 ELSE 0
+               END as cdist,
                GREATEST(0, CASE
                  WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
-                 THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + COALESCE(vls.today_distance, 0)) ELSE COALESCE(NULLIF(vls.odometer, 0), vls.today_distance, 0) END) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
-                 ELSE CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + COALESCE(vls.today_distance, 0)) ELSE COALESCE(NULLIF(vls.odometer, 0), vls.today_distance, 0) END
+                 THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + CASE WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0) ELSE 0 END) ELSE COALESCE(NULLIF(vls.odometer, 0), CASE WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0) ELSE 0 END, 0) END) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
+                 ELSE CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + CASE WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0) ELSE 0 END) ELSE COALESCE(NULLIF(vls.odometer, 0), CASE WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0) ELSE 0 END, 0) END
                END) as dynamic_odo
         FROM vehicles v
         LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id

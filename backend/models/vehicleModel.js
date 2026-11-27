@@ -114,13 +114,16 @@ const VehicleModel = {
               vls.is_immobilized, vls.immobilizer_updated_at,
               vls.last_seen, GREATEST(0, CASE
                 WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
-                THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + COALESCE(vls.today_distance, 0)) ELSE COALESCE(NULLIF(vls.odometer, 0), vls.today_distance, 0) END) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
-                ELSE CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + COALESCE(vls.today_distance, 0)) ELSE COALESCE(NULLIF(vls.odometer, 0), vls.today_distance, 0) END
+                THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + CASE WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0) ELSE 0 END) ELSE COALESCE(NULLIF(vls.odometer, 0), CASE WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0) ELSE 0 END, 0) END) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
+                ELSE CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + CASE WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0) ELSE 0 END) ELSE COALESCE(NULLIF(vls.odometer, 0), CASE WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0) ELSE 0 END, 0) END
               END) as current_odometer,
               vls.direction as current_direction,
               vls.satellites as current_satellites,
               vls.gsm_signal as current_gsm_signal,
-              vls.today_distance as today_distance
+              CASE
+                WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0)
+                ELSE 0
+              END as today_distance
        FROM vehicles v
        JOIN organizations o ON v.org_id = o.id
        LEFT JOIN devices d ON v.imei = d.device_id
@@ -246,10 +249,13 @@ const VehicleModel = {
               vls.last_seen, vls.direction as current_direction,
               GREATEST(0, CASE
                 WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
-                THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + COALESCE(vls.today_distance, 0)) ELSE COALESCE(NULLIF(vls.odometer, 0), vls.today_distance, 0) END) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
-                ELSE CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + COALESCE(vls.today_distance, 0)) ELSE COALESCE(NULLIF(vls.odometer, 0), vls.today_distance, 0) END
+                THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + CASE WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0) ELSE 0 END) ELSE COALESCE(NULLIF(vls.odometer, 0), CASE WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0) ELSE 0 END, 0) END) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
+                ELSE CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + CASE WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0) ELSE 0 END) ELSE COALESCE(NULLIF(vls.odometer, 0), CASE WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0) ELSE 0 END, 0) END
               END) as current_odometer,
-              COALESCE(vls.today_distance, 0) as today_distance
+              CASE
+                WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0)
+                ELSE 0
+              END as today_distance
        FROM vehicles v
        JOIN organizations o ON v.org_id = o.id
        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
@@ -266,7 +272,7 @@ const VehicleModel = {
                 v.category,
                 o.name, d.licence_id, d.device_type, vls.lat, vls.lng, vls.speed, vls.fuel, vfs.current_fuel, vfc.tank_capacity,
                 vfs.total_fuel_consumed, vfs.current_mileage, vfc.initial_mileage, vfs.estimated_range_km, vfc.vehicle_id, vls.ignition,
-                vls.voltage, vls.battery, vls.is_immobilized, vls.immobilizer_updated_at, vls.last_seen, vls.direction, vls.odometer, vls.today_distance, vls.today_start_odometer
+                vls.voltage, vls.battery, vls.is_immobilized, vls.immobilizer_updated_at, vls.last_seen, vls.direction, vls.odometer, vls.today_distance, vls.today_start_odometer, vls.today_distance_date
        ORDER BY v.created_at DESC NULLS LAST, v.id DESC
        LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
       params

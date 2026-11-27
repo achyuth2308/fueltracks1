@@ -744,6 +744,28 @@ async function bootstrap() {
       console.log(`[POOL_STATS] GPS - Total: ${db.gpsPool.totalCount}, Idle: ${db.gpsPool.idleCount}, Waiting: ${db.gpsPool.waitingCount}`);
     }, 60000); // Run every 60 seconds
 
+    // 4.6 Midnight Reset for Today Distance on Inactive/Overnight Vehicles
+    const resetStaleTodayDistance = async () => {
+      try {
+        const resetRes = await db.query(`
+          UPDATE vehicle_latest_state
+          SET today_distance = 0,
+              today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date
+          WHERE today_distance_date IS DISTINCT FROM (NOW() AT TIME ZONE 'Asia/Kolkata')::date
+             OR today_distance_date IS NULL
+        `);
+        if (resetRes.rowCount > 0) {
+          console.log(`[CRON] Reset stale today_distance to 0 for ${resetRes.rowCount} vehicles.`);
+        }
+      } catch (err) {
+        console.error('[CRON] Error resetting stale today_distance:', err.message);
+      }
+    };
+    // Run once immediately at startup
+    await resetStaleTodayDistance();
+    // Run periodically every 60 seconds (catching midnight rollover IST)
+    setInterval(resetStaleTodayDistance, 60000);
+
     // 5b. Flush active trip stats from Redis → DB every 5 minutes (crash safety)
     setInterval(async () => {
       try {

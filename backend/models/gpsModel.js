@@ -364,7 +364,16 @@ const GpsModel = {
     );
 
     const rows = result.rows;
-    if (rows.length < 2) return 0;
+    if (rows.length < 2) {
+      await gpsQuery(
+        `UPDATE vehicle_latest_state
+         SET today_distance = 0,
+             today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date
+         WHERE vehicle_id = $1`,
+        [vehicleId]
+      );
+      return 0;
+    }
 
     // Haversine formula in km
     function calcDist(lat1, lon1, lat2, lon2) {
