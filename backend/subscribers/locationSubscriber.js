@@ -85,8 +85,9 @@ async function queueGpsPoint(point) {
     await gpsQuery(`
       INSERT INTO gps_points
         (vehicle_id, lat, lng, speed, direction, odometer, fuel, ignition,
-         satellites, gsm_signal, battery, voltage, is_live, device_time)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         satellites, gsm_signal, battery, voltage, is_live, device_time,
+         rpm, coolant_temp, throttle, obd_data)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       ON CONFLICT (vehicle_id, device_time) DO NOTHING
     `, [
       point.vehicleId,
@@ -102,7 +103,11 @@ async function queueGpsPoint(point) {
       point.battery != null ? Math.round(point.battery) : null,
       point.voltage ?? null,
       point.isLive ?? true,
-      point.deviceTime
+      point.deviceTime,
+      point.rpm != null ? Math.round(point.rpm) : null,
+      point.coolantTemp != null ? Math.round(point.coolantTemp) : null,
+      point.throttle != null ? Math.round(point.throttle) : null,
+      point.obdData ? JSON.stringify(point.obdData) : null
     ]);
   } catch (err) {
     console.error(`[GPS-INSERT] Immediate insert error for vehicle ${point.vehicleId}:`, err.message);
@@ -843,7 +848,11 @@ async function start(io) {
         await queueGpsPoint({
           vehicleId, lat, lng, speed, direction, odometer: finalOdometer, fuel: finalFuelLiters,
           ignition: finalIgnition, satellites, gsmSignal, battery,
-          voltage, isLive, deviceTime
+          voltage, isLive, deviceTime,
+          rpm: data.rpm || data.obd?.engineRpm || (prevState && prevState.rpm) || null,
+          coolantTemp: data.coolantTemp !== undefined && data.coolantTemp !== null ? data.coolantTemp : (data.obd?.coolantTempCelsius !== undefined ? data.obd.coolantTempCelsius : (prevState && prevState.temperature !== undefined ? prevState.temperature : null)),
+          throttle: data.throttle !== undefined && data.throttle !== null ? data.throttle : (data.obd?.throttlePercent !== undefined ? data.obd.throttlePercent : (prevState && prevState.throttle !== undefined ? prevState.throttle : null)),
+          obdData: data.obd || (prevState && prevState.obd) || null
         });
       } else if (!data.isHeartbeat && !hasValidGps) {
         console.warn(`[GPS-REJECT] IMEI ${imei}: Coordinates (${fLat},${fLng}) outside India bbox or zero — firmware glitch, dropped from DB.`);
@@ -872,7 +881,11 @@ async function start(io) {
             odometer: finalOdometer != null ? Math.round(finalOdometer) : null,
             satellites: satellites != null ? Math.round(satellites) : null,
             gsmSignal: gsmSignal != null ? Math.round(gsmSignal) : null,
-            battery: battery != null ? Math.round(battery) : null
+            battery: battery != null ? Math.round(battery) : null,
+            rpm: data.rpm || data.obd?.engineRpm || (prevState && prevState.rpm) || null,
+            coolantTemp: data.coolantTemp !== undefined && data.coolantTemp !== null ? data.coolantTemp : (data.obd?.coolantTempCelsius !== undefined ? data.obd.coolantTempCelsius : (prevState && prevState.temperature !== undefined ? prevState.temperature : null)),
+            throttle: data.throttle !== undefined && data.throttle !== null ? data.throttle : (data.obd?.throttlePercent !== undefined ? data.obd.throttlePercent : (prevState && prevState.throttle !== undefined ? prevState.throttle : null)),
+            obdData: data.obd || (prevState && prevState.obd) || null
           });
         } catch (dbErr) {
           console.error(`[SUBSCRIBER] Error updating latest state for ${imei}:`, dbErr.message);

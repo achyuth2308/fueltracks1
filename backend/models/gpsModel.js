@@ -85,7 +85,7 @@ const GpsModel = {
    */
   async savePoint({ vehicleId, lat, lng, speed, direction, odometer, fuel,
                      ignition, satellites, gsmSignal, battery, voltage,
-                     isLive, deviceTime }) {
+                     isLive, deviceTime, rpm, coolantTemp, throttle, obdData }) {
     let safeFuel = null;
     if (fuel != null && !isNaN(fuel)) {
       const numFuel = Number(fuel);
@@ -95,12 +95,17 @@ const GpsModel = {
     const result = await gpsQuery(
       `INSERT INTO gps_points
         (vehicle_id, lat, lng, speed, direction, odometer, fuel, ignition,
-         satellites, gsm_signal, battery, voltage, is_live, device_time)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         satellites, gsm_signal, battery, voltage, is_live, device_time,
+         rpm, coolant_temp, throttle, obd_data)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
        ON CONFLICT (vehicle_id, device_time) DO NOTHING
        RETURNING id`,
       [vehicleId, lat, lng, speed, direction, odometer, safeFuel, ignition,
-       satellites, gsmSignal, battery, voltage, isLive, deviceTime]
+       satellites, gsmSignal, battery, voltage, isLive, deviceTime,
+       rpm != null ? Math.round(rpm) : null,
+       coolantTemp != null ? Math.round(coolantTemp) : null,
+       throttle != null ? Math.round(throttle) : null,
+       obdData ? JSON.stringify(obdData) : null]
     );
     return result.rows[0] || null;
   },
@@ -128,7 +133,8 @@ const GpsModel = {
    * Update vehicle latest state (upsert)
    */
   async updateLatestState({ vehicleId, lat, lng, speed, direction, fuel,
-                             ignition, voltage, odometer, satellites, gsmSignal, battery }) {
+                             ignition, voltage, odometer, satellites, gsmSignal, battery,
+                             rpm, coolantTemp, throttle, obdData }) {
     let safeFuel = null;
     if (fuel != null && !isNaN(fuel)) {
       const numFuel = Number(fuel);
@@ -142,9 +148,9 @@ const GpsModel = {
       `INSERT INTO vehicle_latest_state
         (vehicle_id, lat, lng, speed, direction, fuel, ignition, voltage,
          odometer, satellites, gsm_signal, battery, is_online, last_seen,
-         today_distance, today_distance_date)
+         today_distance, today_distance_date, rpm, coolant_temp, throttle, obd_data)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,TRUE,NOW(), 0,
-               (NOW() AT TIME ZONE 'Asia/Kolkata')::date)
+               (NOW() AT TIME ZONE 'Asia/Kolkata')::date, $13, $14, $15, $16)
        ON CONFLICT (vehicle_id) DO UPDATE SET
         lat = COALESCE($2, vehicle_latest_state.lat),
         lng = COALESCE($3, vehicle_latest_state.lng),
@@ -157,6 +163,14 @@ const GpsModel = {
         satellites = COALESCE($10, vehicle_latest_state.satellites),
         gsm_signal = COALESCE($11, vehicle_latest_state.gsm_signal),
         battery = COALESCE($12, vehicle_latest_state.battery),
+        rpm = COALESCE($13, vehicle_latest_state.rpm),
+        coolant_temp = COALESCE($14, vehicle_latest_state.coolant_temp),
+        throttle = COALESCE($15, vehicle_latest_state.throttle),
+        obd_data = CASE
+          WHEN $16::jsonb IS NOT NULL AND $16::jsonb != '{}'::jsonb
+          THEN COALESCE(vehicle_latest_state.obd_data, '{}'::jsonb) || $16::jsonb
+          ELSE vehicle_latest_state.obd_data
+        END,
         is_online = TRUE, last_seen = NOW(),
         today_distance_date = CASE
           WHEN vehicle_latest_state.today_distance_date IS DISTINCT FROM (NOW() AT TIME ZONE 'Asia/Kolkata')::date
@@ -198,7 +212,11 @@ const GpsModel = {
         END
        RETURNING today_distance`,
       [vehicleId, lat, lng, speed, direction, safeFuel, ignition, voltage,
-       odometer, satellites, gsmSignal, battery]
+       odometer, satellites, gsmSignal, battery,
+       rpm != null ? Math.round(rpm) : null,
+       coolantTemp != null ? Math.round(coolantTemp) : null,
+       throttle != null ? Math.round(throttle) : null,
+       obdData ? JSON.stringify(obdData) : null]
     );
     // Return the updated today_distance so it can be emitted via socket
     return parseFloat(result.rows[0]?.today_distance ?? 0);

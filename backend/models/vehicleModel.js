@@ -123,7 +123,11 @@ const VehicleModel = {
               CASE
                 WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0)
                 ELSE 0
-              END as today_distance
+              END as today_distance,
+              vls.rpm,
+              vls.coolant_temp,
+              vls.throttle,
+              vls.obd_data
        FROM vehicles v
        JOIN organizations o ON v.org_id = o.id
        LEFT JOIN devices d ON v.imei = d.device_id
@@ -255,7 +259,11 @@ const VehicleModel = {
               CASE
                 WHEN vls.today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date THEN COALESCE(vls.today_distance, 0)
                 ELSE 0
-              END as today_distance
+              END as today_distance,
+              vls.rpm,
+              vls.coolant_temp,
+              vls.throttle,
+              vls.obd_data
        FROM vehicles v
        JOIN organizations o ON v.org_id = o.id
        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
@@ -272,7 +280,7 @@ const VehicleModel = {
                 v.category,
                 o.name, d.licence_id, d.device_type, vls.lat, vls.lng, vls.speed, vls.fuel, vfs.current_fuel, vfc.tank_capacity,
                 vfs.total_fuel_consumed, vfs.current_mileage, vfc.initial_mileage, vfs.estimated_range_km, vfc.vehicle_id, vls.ignition,
-                vls.voltage, vls.battery, vls.is_immobilized, vls.immobilizer_updated_at, vls.last_seen, vls.direction, vls.odometer, vls.today_distance, vls.today_start_odometer, vls.today_distance_date
+                vls.voltage, vls.battery, vls.is_immobilized, vls.immobilizer_updated_at, vls.last_seen, vls.direction, vls.odometer, vls.today_distance, vls.today_start_odometer, vls.today_distance_date, vls.rpm, vls.coolant_temp, vls.throttle, vls.obd_data
        ORDER BY v.created_at DESC NULLS LAST, v.id DESC
        LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
       params

@@ -528,6 +528,17 @@ async function bootstrap() {
       ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS today_distance_date DATE;
       ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS today_start_odometer NUMERIC(15,3);
 
+      -- OBD Telemetry Columns
+      ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS rpm INTEGER;
+      ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS coolant_temp SMALLINT;
+      ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS throttle SMALLINT;
+      ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS obd_data JSONB DEFAULT '{}'::jsonb;
+
+      ALTER TABLE gps_points ADD COLUMN IF NOT EXISTS rpm INTEGER;
+      ALTER TABLE gps_points ADD COLUMN IF NOT EXISTS coolant_temp SMALLINT;
+      ALTER TABLE gps_points ADD COLUMN IF NOT EXISTS throttle SMALLINT;
+      ALTER TABLE gps_points ADD COLUMN IF NOT EXISTS obd_data JSONB;
+
       -- Geofences columns and vehicle_geofences mapping table
       ALTER TABLE geofences ADD COLUMN IF NOT EXISTS color VARCHAR(50) DEFAULT '#3B82F6';
       ALTER TABLE geofences ADD COLUMN IF NOT EXISTS alert_on_enter BOOLEAN DEFAULT TRUE;
