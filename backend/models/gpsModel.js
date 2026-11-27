@@ -1078,7 +1078,11 @@ const GpsModel = {
                   'ignition', gp.ignition,
                   'satellites', gp.satellites,
                   'gsmSignal', gp.gsm_signal,
-                  'direction', gp.direction
+                  'direction', gp.direction,
+                  'rpm', gp.rpm,
+                  'coolantTemp', gp.coolant_temp,
+                  'throttle', gp.throttle,
+                  'obdData', gp.obd_data
                 ) as parsed_data,
                 gp.lat,
                 gp.lng,
@@ -1087,7 +1091,11 @@ const GpsModel = {
                 gp.voltage,
                 gp.battery,
                 gp.ignition,
-                gp.direction
+                gp.direction,
+                gp.rpm,
+                gp.coolant_temp,
+                gp.throttle,
+                gp.obd_data
          FROM gps_points gp
          JOIN vehicles v ON gp.vehicle_id = v.id
          ${fallbackWhere}

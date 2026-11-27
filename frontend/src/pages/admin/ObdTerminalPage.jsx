@@ -236,12 +236,39 @@ export default function ObdTerminalPage() {
           if (rawHex) {
             parsed = parseObdPacket(rawHex);
           }
+
+          // Unpack obd_data and fallback fields from gps_points when raw_hex is not present
+          const obdData = item.obd_data || item.parsed_data?.obdData || item.obdData || {};
+          const parsedData = typeof item.parsed_data === 'object' ? item.parsed_data : {};
+
+          const fallbackData = {
+            ...item,
+            ...parsedData,
+            fuelRemainingL: obdData.fuelRemainingLitres ?? item.fuel ?? parsedData.fuel ?? null,
+            totalFuelL: obdData.totalFuelLitres ?? null,
+            tripFuelL: obdData.tripFuelLitres ?? null,
+            instantFuelL100km: obdData.instantFuelL100km ?? null,
+            avgFuelL100km: obdData.averageFuelL100km ?? null,
+            engineRpm: item.rpm ?? parsedData.rpm ?? obdData.engineRpm ?? null,
+            coolantTempC: item.coolant_temp ?? parsedData.coolantTemp ?? obdData.coolantTempCelsius ?? null,
+            throttlePct: item.throttle ?? parsedData.throttle ?? obdData.throttlePercent ?? null,
+            batteryVoltageV: item.voltage ?? parsedData.voltage ?? null,
+            gpsSpeedKmh: item.speed ?? parsedData.speed ?? null,
+            clusterOdometerKm: obdData.totalOdometerKm ?? (item.odometer ? item.odometer / 10 : null) ?? null,
+            ecuWheelSpeedKmh: obdData.obdSpeed ?? null,
+            ignition: item.ignition ?? parsedData.ignition ?? false,
+            satellites: item.satellites ?? parsedData.satellites ?? null,
+            gsmSignal: item.gsm_signal ?? parsedData.gsmSignal ?? null,
+            lat: item.lat ?? parsedData.lat ?? null,
+            lng: item.lng ?? parsedData.lng ?? null
+          };
+
           const packetTime = item.device_time ? new Date(item.device_time) : (item.received_at ? new Date(item.received_at) : new Date());
           return {
             id: item.id || `${packetTime.getTime()}_${Math.random()}`,
             time: packetTime,
             rawHex: rawHex,
-            data: parsed || item.parsed_data || item,
+            data: parsed || fallbackData,
             source: 'HISTORY'
           };
         });
@@ -636,88 +663,67 @@ export default function ObdTerminalPage() {
           title="Fuel Intelligence"
           icon={<Fuel className="w-5 h-5 text-emerald-600" />}
           accentColor="emerald"
-          badge={
-            isEcuSleeping && (!rawRemainingL || rawRemainingL === 0)
-              ? 'ECU Standby'
-              : (rawRemainingL !== undefined && rawRemainingL !== null ? `${rawRemainingL} L in Tank` : 'Live ECU')
-          }
+          badge={rawRemainingL !== undefined && rawRemainingL !== null ? `${rawRemainingL} L in Tank` : 'Live ECU'}
         >
           {/* Section A: Tank Volume & Gauge */}
           <div className="pb-2.5 mb-2.5 border-b border-slate-100">
             <div className="flex items-center justify-between text-[10px] font-bold tracking-wider uppercase text-emerald-700 mb-1.5">
               <span>⛽ Fuel Tank Level (Current Volume)</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
-                isEcuSleeping 
-                  ? 'bg-slate-100 text-slate-600 border-slate-200' 
-                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-              }`}>
-                {isEcuSleeping ? 'ECU In Sleep Mode' : 'Inside Tank'}
+              <span className="px-2 py-0.5 rounded text-[10px] font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">
+                Inside Tank
               </span>
             </div>
             
-            {isEcuSleeping && (!rawRemainingL || rawRemainingL === 0) ? (
-              <div className="py-2.5 px-3 bg-slate-50/80 rounded-xl border border-slate-200/60 my-1">
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
-                  <span>Tank Fuel Reading:</span>
-                  <span className="font-mono text-slate-500">ECU Standby (Ignition OFF)</span>
-                </div>
-                <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                  Vehicle ignition is turned OFF. The car's CAN-bus fuel float sensor goes into low-power sleep mode while parked.
-                </p>
-              </div>
-            ) : (
-              <>
-                <DataRow 
-                  label="Current Fuel in Tank (Remaining)" 
-                  value={formatNum(rawRemainingL, 'Litres')} 
-                  highlight 
-                />
+            <DataRow 
+              label="Current Fuel in Tank (Remaining)" 
+              value={formatNum(rawRemainingL, 'Litres')} 
+              highlight 
+              badge={
+                rawRemainingL === 0 && isEcuSleeping 
+                  ? 'bg-slate-100 text-slate-600 font-normal' 
+                  : (rawRemainingL > 0 ? 'bg-emerald-50 text-emerald-700 font-semibold' : null)
+              }
+            />
 
-                {/* Visual Fuel Gauge Bar (Only shown if effective percentage is known) */}
-                {effectivePct !== null ? (
-                  <div className="py-1.5 px-0.5">
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-slate-500 font-medium text-[11px]">Fuel Gauge Level</span>
-                      <span className={`font-mono font-bold text-[11px] ${
-                        effectivePct <= 15 ? 'text-rose-600' : 'text-emerald-600'
-                      }`}>
-                        {effectivePct}% {effectivePct <= 15 ? '⚠️ Low Reserve' : '✓ Normal'}
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/60">
-                      <div 
-                        className={`h-full transition-all duration-500 rounded-full ${
-                          effectivePct <= 15 
-                            ? 'bg-gradient-to-r from-rose-500 to-amber-500' 
-                            : 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                        }`}
-                        style={{ width: `${Math.min(100, Math.max(3, effectivePct))}%` }}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <DataRow 
-                    label="ECU Diagnostic Reading" 
-                    value={rawRemainingL ? `${rawRemainingL} L (PID 0x000D)` : '—'} 
-                    badge="bg-emerald-50 text-emerald-700 font-mono text-[10px]"
+            {/* Visual Fuel Gauge Bar (Only shown if effective percentage is known) */}
+            {effectivePct !== null ? (
+              <div className="py-1.5 px-0.5">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-slate-500 font-medium text-[11px]">Fuel Gauge Level</span>
+                  <span className={`font-mono font-bold text-[11px] ${
+                    effectivePct <= 15 ? 'text-rose-600' : 'text-emerald-600'
+                  }`}>
+                    {effectivePct}% {effectivePct <= 15 ? '⚠️ Low Reserve' : '✓ Normal'}
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/60">
+                  <div 
+                    className={`h-full transition-all duration-500 rounded-full ${
+                      effectivePct <= 15 
+                        ? 'bg-gradient-to-r from-rose-500 to-amber-500' 
+                        : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                    }`}
+                    style={{ width: `${Math.min(100, Math.max(3, effectivePct))}%` }}
                   />
-                )}
-                
-                <DataRow 
-                  label="Tank Level Percentage" 
-                  value={
-                    effectivePct !== null 
-                      ? `${effectivePct} %` 
-                      : (rawRemainingL ? 'Liters Direct (CAN)' : '—')
-                  } 
-                  badge={
-                    effectivePct !== null
-                      ? (effectivePct <= 15 ? 'bg-rose-100 text-rose-800 font-bold' : 'bg-emerald-50 text-emerald-700')
-                      : 'bg-slate-100 text-slate-600'
-                  }
-                />
-              </>
-            )}
+                </div>
+              </div>
+            ) : null}
+            
+            <DataRow 
+              label="Tank Level Percentage" 
+              value={
+                effectivePct !== null 
+                  ? `${effectivePct} %` 
+                  : (currentTelemetry?.fuelLevelPct != null && currentTelemetry?.fuelLevelPct > 0 
+                      ? `${currentTelemetry.fuelLevelPct} %` 
+                      : (rawRemainingL !== null && rawRemainingL !== undefined ? `${rawRemainingL} L (PID 0x000D)` : '—'))
+              } 
+              badge={
+                effectivePct !== null
+                  ? (effectivePct <= 15 ? 'bg-rose-100 text-rose-800 font-bold' : 'bg-emerald-50 text-emerald-700')
+                  : 'bg-slate-100 text-slate-600'
+              }
+            />
           </div>
 
           {/* Section B: Engine Consumption (Cumulative Burned) */}
