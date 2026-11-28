@@ -1624,7 +1624,7 @@ const EditVehiclePage = () => {
             label="Fuel Type"
             value={form.metadata.fuelType}
             onChange={e => updateMeta('fuelType', e.target.value)}
-            options={['LLS Fuel 1(Serial)', 'LLS Fuel 2', 'LLS Fuel 3', 'Jointech', 'Technoton', 'BLE Fuel Level 1', 'BLE Fuel Level 2', 'Analog', 'Analog 2', 'CAN-Bus / OBD-II', 'Digital', 'Frequency', 'None', 'Diesel', 'Petrol', 'CNG']}
+            options={['LLS Fuel 1(Serial)', 'LLS Fuel 2', 'LLS Fuel 3', 'Jointech', 'Technoton', 'BSTPL', 'BLE Fuel Level 1', 'BLE Fuel Level 2', 'Analog', 'Analog 2', 'CAN-Bus / OBD-II', 'Digital', 'Frequency', 'None', 'Diesel', 'Petrol', 'CNG']}
             focused={focusedField === 'fType'}
             onFocus={() => setFocusedField('fType')}
             onBlur={() => setFocusedField(null)}
