@@ -294,7 +294,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
           subItems: [
             { name: 'Live Tracking', path: '/tracking' },
             { name: 'History Tracking', path: '/history' },
-            ...((vehicles && vehicles.length > 1) ? [{ name: 'Multi Tracking', path: '/tracking?mode=multi' }] : []),
+            { name: 'Multi Tracking', path: '/tracking?mode=multi' },
           ],
         },
         {

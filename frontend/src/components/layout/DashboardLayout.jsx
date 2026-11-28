@@ -5,12 +5,23 @@ import Topbar from './Topbar';
 import { useAuth } from '../../hooks/useAuth';
 import ErrorBoundary from '../ErrorBoundary';
 import axiosInstance from '../../api/axios';
+import * as vehicleApi from '../../api/vehicleApi';
 
-const DashboardLayout = ({ vehicles = [] }) => {
+const DashboardLayout = ({ vehicles = [], setVehicles }) => {
   const { user, isAuthenticated, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
   const [brandProfile, setBrandProfile] = useState(null);
   const location = useLocation();
+
+  useEffect(() => {
+    if (isAuthenticated && (!vehicles || vehicles.length === 0) && setVehicles) {
+      vehicleApi.getVehicles({ limit: 1000 }).then(res => {
+        if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
+          setVehicles(res.data);
+        }
+      }).catch(() => { });
+    }
+  }, [isAuthenticated, vehicles, setVehicles]);
 
   useEffect(() => {
     const loadProfile = () => {

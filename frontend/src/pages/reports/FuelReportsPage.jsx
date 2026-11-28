@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import TelematicsDatePicker from '../../components/ui/TelematicsDatePicker';
 import TelematicsTimePicker, { to12Hour } from '../../components/ui/TelematicsTimePicker';
 import {
-  FileSpreadsheet, FileText, Search, Loader2, Calendar, Info,
+  FileSpreadsheet, FileText, FileCode, Search, Loader2, Calendar, Info,
   Droplets, Flame, Gauge, Zap, TrendingUp, TrendingDown,
-  Truck, ArrowUpRight, CheckCircle2, AlertTriangle, ShieldAlert
+  Truck, ArrowUpRight, CheckCircle2, AlertTriangle, ShieldAlert, ArrowUpDown
 } from 'lucide-react';
 import axiosInstance from '../../api/axios';
-import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
+import { exportToExcel, exportToCSV, exportToPDF } from '../../utils/exportUtils';
 import AddressText from '../../components/ui/AddressText';
 import { getLocalDateString } from '../../utils/dateUtils';
 import * as vehicleApi from '../../api/vehicleApi';
@@ -97,12 +97,24 @@ const FuelReportsPage = ({ type: propType }) => {
       const gName = (v.group_name || v.group?.name || '').trim().toLowerCase();
       const matchName = gName === selectedGroup.trim().toLowerCase();
       const matchArr = Array.isArray(v.groups) && v.groups.some(g => (g.name || '').trim().toLowerCase() === selectedGroup.trim().toLowerCase());
-      return matchName || matchArr;
+      const matchStr = (v.group_name || '').split(',').map(s => s.trim().toLowerCase()).includes(selectedGroup.trim().toLowerCase());
+      return matchName || matchArr || matchStr;
     });
   }, [fuelCapableVehicles, vehicles, selectedGroup]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [sortField, setSortField] = useState('vehicle_name');
+  const [sortDir, setSortDir] = useState('asc');
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
 
   const defaultToday = getTodayString();
   const [activePreset, setActivePreset] = useState('today');
@@ -246,27 +258,116 @@ const FuelReportsPage = ({ type: propType }) => {
         const gName = (vMeta?.group_name || vMeta?.group?.name || item.group_name || '').trim().toLowerCase();
         const selG = selectedGroup.trim().toLowerCase();
         const matchArr = Array.isArray(vMeta?.groups) && vMeta.groups.some(g => (g.name || '').trim().toLowerCase() === selG);
-        matchesGroup = gName === selG || matchArr;
+        const matchStr = (vMeta?.group_name || item.group_name || '').split(',').map(s => s.trim().toLowerCase()).includes(selG);
+        matchesGroup = gName === selG || matchArr || matchStr;
       }
 
       return matchesSearch && matchesCat && matchesGroup;
     });
   }, [data, searchQuery, categoryFilter, selectedGroup, vehicles]);
 
+  // Helper to resolve clean, official dashboard group name for a vehicle
+  const resolveVehicleGroup = useCallback((vId, row = {}) => {
+    if (selectedGroup && selectedGroup !== 'All') {
+      return selectedGroup;
+    }
+    const vMeta = vehicles.find(v => String(v.id) === String(vId));
+    if (Array.isArray(groups) && groups.length > 0) {
+      for (const g of groups) {
+        const gNameClean = (g.name || '').trim();
+        const gNameLower = gNameClean.toLowerCase();
+        if (!gNameLower) continue;
+
+        const matchArr = Array.isArray(vMeta?.groups) && vMeta.groups.some(vg => vg.id === g.id || (vg.name && vg.name.trim().toLowerCase() === gNameLower));
+        const matchSingle = vMeta?.group?.id === g.id || (vMeta?.group?.name && vMeta.group.name.trim().toLowerCase() === gNameLower);
+        const rawStr = (vMeta?.group_name || row?.group_name || '');
+        const matchStr = rawStr.split(',').map(s => s.trim().toLowerCase()).includes(gNameLower);
+
+        if (matchArr || matchSingle || matchStr) {
+          return gNameClean;
+        }
+      }
+    }
+    return (vMeta?.group_name || vMeta?.group?.name || row?.group_name || 'General Fleet').trim();
+  }, [selectedGroup, vehicles, groups]);
+
+  // Sort filtered data based on user selection
+  const sortedData = useMemo(() => {
+    if (!sortField) return filteredData;
+    return [...filteredData].sort((a, b) => {
+      let valA, valB;
+      if (sortField === 'org_name') {
+        valA = resolveVehicleGroup(a.vehicle_id, a);
+        valB = resolveVehicleGroup(b.vehicle_id, b);
+      } else if (sortField === 'vehicle_name') {
+        valA = a.vehicle_name || a.plate || '';
+        valB = b.vehicle_name || b.plate || '';
+      } else if (sortField === 'vehicle_mode') {
+        valA = a.vehicle_category || '';
+        valB = b.vehicle_category || '';
+      } else if (sortField === 'vehicle_model') {
+        const vA = vehicles.find(v => String(v.id) === String(a.vehicle_id));
+        const vB = vehicles.find(v => String(v.id) === String(b.vehicle_id));
+        valA = vA?.metadata?.model || vA?.model || '';
+        valB = vB?.metadata?.model || vB?.model || '';
+      } else if (sortField === 'start_fuel') {
+        valA = parseFloat(a.start_fuel) || 0;
+        valB = parseFloat(b.start_fuel) || 0;
+      } else if (sortField === 'end_fuel') {
+        valA = parseFloat(a.end_fuel) || 0;
+        valB = parseFloat(b.end_fuel) || 0;
+      } else if (sortField === 'refill') {
+        valA = parseFloat(a.total_refill) || 0;
+        valB = parseFloat(b.total_refill) || 0;
+      } else if (sortField === 'theft') {
+        valA = parseFloat(a.total_theft) || 0;
+        valB = parseFloat(b.total_theft) || 0;
+      } else if (sortField === 'consumption') {
+        valA = parseFloat(a.consumption) || 0;
+        valB = parseFloat(b.consumption) || 0;
+      } else if (sortField === 'distance') {
+        valA = parseFloat(a.distance_travelled) || 0;
+        valB = parseFloat(b.distance_travelled) || 0;
+      } else if (sortField === 'kmpl') {
+        valA = parseFloat(a.kmpl) || 0;
+        valB = parseFloat(b.kmpl) || 0;
+      } else if (sortField === 'running_sec') {
+        valA = parseFloat(a.running_seconds) || 0;
+        valB = parseFloat(b.running_seconds) || 0;
+      } else if (sortField === 'engine_sec') {
+        valA = parseFloat(a.engine_on_seconds) || 0;
+        valB = parseFloat(b.engine_on_seconds) || 0;
+      } else if (sortField === 'idle_sec') {
+        valA = parseFloat(a.idle_seconds) || 0;
+        valB = parseFloat(b.idle_seconds) || 0;
+      } else if (sortField === 'lph') {
+        valA = parseFloat(a.lph) || 0;
+        valB = parseFloat(b.lph) || 0;
+      } else {
+        valA = a[sortField] || 0;
+        valB = b[sortField] || 0;
+      }
+
+      if (typeof valA === 'string') {
+        const cmp = valA.localeCompare(valB, undefined, { sensitivity: 'base' });
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
+      return sortDir === 'asc' ? (valA - valB) : (valB - valA);
+    });
+  }, [filteredData, sortField, sortDir, resolveVehicleGroup, vehicles]);
 
   // Group rows by assigned group for group-wise sectioning
   const groupedRows = useMemo(() => {
     const map = new Map();
-    filteredData.forEach(row => {
-      const vMeta = vehicles.find(v => String(v.id) === String(row.vehicle_id));
-      const gName = (vMeta?.group_name || vMeta?.group?.name || row.group_name || 'General Fleet').trim();
+    sortedData.forEach(row => {
+      const gName = resolveVehicleGroup(row.vehicle_id, row);
       if (!map.has(gName)) {
         map.set(gName, []);
       }
       map.get(gName).push(row);
     });
     return Array.from(map.entries());
-  }, [filteredData, vehicles]);
+  }, [sortedData, resolveVehicleGroup]);
 
   // Aggregate Metrics based on report type
   const metrics = useMemo(() => {
@@ -453,8 +554,7 @@ const FuelReportsPage = ({ type: propType }) => {
         return {
           'S.No': idx + 1,
           'Vehicle Name': vName,
-          'Group Name': resolveVehicleGroup(row.vehicle_id),
-          'Group Name': resolveVehicleGroup(row.vehicle_id),
+          'Group Name': resolveVehicleGroup(row.vehicle_id, row),
           'Reg No': row.plate || '-',
           'Category': cat,
           'Start Fuel (L)': row.start_fuel != null ? row.start_fuel : '-',
@@ -485,21 +585,33 @@ const FuelReportsPage = ({ type: propType }) => {
       }
 
       if (reportType === 'consolidated') {
+        const vMeta = vehicles.find(v => String(v.id) === String(row.vehicle_id));
+        const vModel = vMeta?.metadata?.model || vMeta?.metadata?.make || vMeta?.model || 'ASHOK LEYLAND';
+        const startKms = row.start_odometer || 0;
+        const dist = parseFloat(row.distance_travelled || 0);
+        const endKms = row.end_odometer || (startKms > 0 ? (startKms + Math.round(dist)) : Math.round(dist));
+
         return {
           'S.No': idx + 1,
+          'Organization Name': resolveVehicleGroup(row.vehicle_id, row),
           'Vehicle Name': vName,
-          'Group Name': resolveVehicleGroup(row.vehicle_id),
-          'Reg No': row.plate || '-',
-          'Category': cat,
-          'Total Distance (km)': row.distance_travelled || 0,
+          'Vehicle Mode': cat === 'moving' ? 'Moving Vehicle' : cat === 'generator' ? 'Generator DG' : cat === 'machinery' ? 'Machinery Asset' : 'Dispenser Bowser',
+          'Vehicle Model': vModel,
+          'Sensor': vMeta?.metadata?.sensorCount || 1,
+          'Start Fuel': row.start_fuel != null ? parseFloat(row.start_fuel).toFixed(2) : '0.00',
+          'End Fuel': row.end_fuel != null ? parseFloat(row.end_fuel).toFixed(2) : '0.00',
+          'Fuel Filling': parseFloat(row.total_refill || 0).toFixed(2),
+          'Fuel Theft': parseFloat(row.total_theft || 0).toFixed(2),
+          'Fuel Consumption': row.consumption != null ? parseFloat(row.consumption).toFixed(2) : '0.00',
+          'Start Kms': startKms,
+          'End Kms': endKms,
+          'Distance Travelled': dist.toFixed(1),
+          'Kmpl': row.kmpl != null && row.kmpl > 0 ? parseFloat(row.kmpl).toFixed(2) : '-',
+          'Running Hrs': formatHMS(row.running_seconds),
           'Engine ON Hours': formatHMS(row.engine_on_seconds),
-          'Start Fuel (L)': row.start_fuel != null ? row.start_fuel : '-',
-          'End Fuel (L)': row.end_fuel != null ? row.end_fuel : '-',
-          'Refill (+L)': row.total_refill || 0,
-          'Theft (-L)': row.total_theft || 0,
-          'Net Consumed (L)': row.consumption != null ? row.consumption : '-',
-          'Mileage (km/L)': row.kmpl != null ? row.kmpl : '-',
-          'Burn Rate (L/h)': row.lph != null ? row.lph : '-'
+          'Secondary Engine Hrs': '00:00:00',
+          'Engine Idle Hrs': formatHMS(row.idle_seconds),
+          'Ltr Per Hr': row.lph != null && row.lph > 0 ? parseFloat(row.lph).toFixed(2) : '0.00'
         };
       }
 
@@ -507,7 +619,7 @@ const FuelReportsPage = ({ type: propType }) => {
         return {
           'S.No': idx + 1,
           'Vehicle Name': vName,
-          'Group Name': resolveVehicleGroup(row.vehicle_id),
+          'Group Name': resolveVehicleGroup(row.vehicle_id, row),
           'Reg No': row.plate || '-',
           'Category': cat,
           'Distance Travelled (km)': row.distance_travelled || 0,
@@ -523,7 +635,7 @@ const FuelReportsPage = ({ type: propType }) => {
         return {
           'S.No': idx + 1,
           'Vehicle / Asset Name': vName,
-          'Group Name': resolveVehicleGroup(row.vehicle_id),
+          'Group Name': resolveVehicleGroup(row.vehicle_id, row),
           'Reg No': row.plate || '-',
           'Category': cat,
           'Engine ON Hours': formatHMS(row.engine_on_seconds),
@@ -636,8 +748,11 @@ const FuelReportsPage = ({ type: propType }) => {
               <IconComp size={15} color={config.accentColor} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>
-                {config.title}
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>{config.title}</span>
+                {reportType === 'consolidated' && (
+                  <Info size={14} color="#0284C7" title="Consolidated fleet fuel, filling, theft, mileage and operational summary" style={{ cursor: 'pointer' }} />
+                )}
               </h3>
               <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, background: '#F8FAFC', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E2E8F0', textTransform: 'uppercase' }}>
                 {config.badgeText}
@@ -648,7 +763,25 @@ const FuelReportsPage = ({ type: propType }) => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            {reportType === 'consolidated' && (
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '11px',
+                fontWeight: 700,
+                background: '#FEF2F2',
+                color: '#991B1B',
+                padding: '3px 8px',
+                borderRadius: '4px',
+                border: '1px solid #FECACA',
+                marginRight: '4px'
+              }}>
+                <span style={{ width: '10px', height: '10px', background: '#DC2626', borderRadius: '2px', display: 'inline-block' }} />
+                <span>No Data Vehicles</span>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => handlePreset('yesterday')}
@@ -926,37 +1059,169 @@ const FuelReportsPage = ({ type: propType }) => {
         </div>
       </div>
 
-      {/* 2. Compact KPI Summary Bar (Excel Ribbon Style - Zero Wasted Space) */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '6px',
-        flexShrink: 0
-      }}>
-        {config.cards.map((card, cIdx) => (
-          <div
-            key={cIdx}
-            style={{
-              background: '#FFFFFF',
-              borderRadius: '5px',
-              padding: '6px 12px',
-              border: '1px solid #CBD5E1',
-              borderLeft: `4px solid ${card.color}`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-            }}
-          >
-            <span style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-              {card.label}
-            </span>
-            <span style={{ fontSize: '14.5px', fontWeight: 800, color: card.color, fontFamily: 'monospace, "SF Mono", monospace' }}>
-              {card.val}
-            </span>
+      {/* 2. Compact KPI Summary Bar OR Consolidated 2-Column Matrix */}
+      {reportType === 'consolidated' ? (
+        <div style={{
+          background: '#FFFFFF',
+          borderRadius: '5px',
+          border: '1px solid #CBD5E1',
+          overflow: 'hidden',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+          flexShrink: 0
+        }}>
+          {/* Header of summary: Date & Time on left, Excel/CSV/PDF export buttons on right */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '6px 12px',
+            background: '#F8FAFC',
+            borderBottom: '1px solid #E2E8F0',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: 800, color: '#0F172A' }}>
+              <span>Date & Time:</span>
+              <span style={{ color: '#0284C7', fontFamily: 'monospace' }}>
+                {filters.startDate === filters.endDate ? filters.startDate : `${filters.startDate} to ${filters.endDate}`}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                type="button"
+                onClick={() => exportToExcel(getExportData(), 'Consolidated_Fuel_Report')}
+                disabled={filteredData.length === 0}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  background: filteredData.length === 0 ? '#E2E8F0' : '#10B981',
+                  color: '#FFFFFF',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: filteredData.length === 0 ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 1px 2px rgba(16,185,129,0.3)'
+                }}
+                title="Export to Excel"
+              >
+                <FileSpreadsheet size={13} />
+                Excel
+              </button>
+              <button
+                type="button"
+                onClick={() => exportToCSV(getExportData(), 'Consolidated_Fuel_Report')}
+                disabled={filteredData.length === 0}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  background: filteredData.length === 0 ? '#E2E8F0' : '#0284C7',
+                  color: '#FFFFFF',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: filteredData.length === 0 ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 1px 2px rgba(2,132,199,0.3)'
+                }}
+                title="Export to CSV"
+              >
+                <FileCode size={13} />
+                CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => exportToPDF(Object.keys(getExportData()[0] || {}), getExportData(), 'Consolidated Fuel Report', 'Consolidated_Fuel_Report')}
+                disabled={filteredData.length === 0}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  background: filteredData.length === 0 ? '#E2E8F0' : '#EF4444',
+                  color: '#FFFFFF',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: filteredData.length === 0 ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 1px 2px rgba(239,68,68,0.3)'
+                }}
+                title="Export to PDF"
+              >
+                <FileText size={13} />
+                PDF
+              </button>
+            </div>
           </div>
-        ))}
-      </div>
+
+          {/* 2-Column Key-Value Grid matching legacy matrix */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px' }}>
+            <tbody>
+              <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                <td style={{ padding: '6px 12px', width: '25%', color: '#475569', fontWeight: 600, background: '#F8FAFC', borderRight: '1px solid #E2E8F0' }}>Total Fuel Consumption</td>
+                <td style={{ padding: '6px 12px', width: '25%', fontWeight: 800, color: '#EA580C', borderRight: '1px solid #E2E8F0', fontFamily: 'monospace' }}>{metrics.totalConsumed.toFixed(2)}</td>
+                <td style={{ padding: '6px 12px', width: '25%', color: '#475569', fontWeight: 600, background: '#F8FAFC', borderRight: '1px solid #E2E8F0' }}>Total Fuel Fill</td>
+                <td style={{ padding: '6px 12px', width: '25%', fontWeight: 800, color: '#059669', fontFamily: 'monospace' }}>{metrics.totalRefill.toFixed(2)}</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                <td style={{ padding: '6px 12px', color: '#475569', fontWeight: 600, background: '#F8FAFC', borderRight: '1px solid #E2E8F0' }}>Total Distance</td>
+                <td style={{ padding: '6px 12px', fontWeight: 800, color: '#0F172A', borderRight: '1px solid #E2E8F0', fontFamily: 'monospace' }}>{metrics.totalDistance}</td>
+                <td style={{ padding: '6px 12px', color: '#475569', fontWeight: 600, background: '#F8FAFC', borderRight: '1px solid #E2E8F0' }}>Total Fuel Theft</td>
+                <td style={{ padding: '6px 12px', fontWeight: 800, color: metrics.totalTheft > 0 ? '#DC2626' : '#64748B', fontFamily: 'monospace' }}>{metrics.totalTheft.toFixed(2)}</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                <td style={{ padding: '6px 12px', color: '#475569', fontWeight: 600, background: '#F8FAFC', borderRight: '1px solid #E2E8F0' }}>Total Engine Idle Hrs</td>
+                <td style={{ padding: '6px 12px', fontWeight: 800, color: '#0284C7', borderRight: '1px solid #E2E8F0', fontFamily: 'monospace' }}>{formatHMS(metrics.totalIdleSec)}</td>
+                <td style={{ padding: '6px 12px', color: '#475569', fontWeight: 600, background: '#F8FAFC', borderRight: '1px solid #E2E8F0' }}>Total Engine ON Hours</td>
+                <td style={{ padding: '6px 12px', fontWeight: 800, color: '#0F172A', fontFamily: 'monospace' }}>{formatHMS(metrics.totalEngineSec)}</td>
+              </tr>
+              <tr>
+                <td style={{ padding: '6px 12px', color: '#475569', fontWeight: 600, background: '#F8FAFC', borderRight: '1px solid #E2E8F0' }}>KMPL</td>
+                <td style={{ padding: '6px 12px', fontWeight: 800, color: '#4F46E5', borderRight: '1px solid #E2E8F0', fontFamily: 'monospace' }}>{metrics.fleetAvgKmpl}</td>
+                <td style={{ padding: '6px 12px', color: '#475569', fontWeight: 600, background: '#F8FAFC', borderRight: '1px solid #E2E8F0' }}>LTPH</td>
+                <td style={{ padding: '6px 12px', fontWeight: 800, color: '#0F766E', fontFamily: 'monospace' }}>{metrics.fleetAvgLph}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '6px',
+          flexShrink: 0
+        }}>
+          {config.cards.map((card, cIdx) => (
+            <div
+              key={cIdx}
+              style={{
+                background: '#FFFFFF',
+                borderRadius: '5px',
+                padding: '6px 12px',
+                border: '1px solid #CBD5E1',
+                borderLeft: `4px solid ${card.color}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+              }}
+            >
+              <span style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                {card.label}
+              </span>
+              <span style={{ fontSize: '14.5px', fontWeight: 800, color: card.color, fontFamily: 'monospace, "SF Mono", monospace' }}>
+                {card.val}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* 3. Excel Format Data Table */}
       <div style={{
@@ -985,87 +1250,136 @@ const FuelReportsPage = ({ type: propType }) => {
           <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '11px', color: '#0F172A', minWidth: '850px' }}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                <tr style={{ background: '#0F172A' }}>
-                  <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', width: '38px', textAlign: 'center' }}>#</th>
-                  <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)' }}>Vehicle Name</th>
-                  <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Category</th>
+                {reportType === 'consolidated' ? (
+                  <tr style={{ background: '#0F172A' }}>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', width: '35px', textAlign: 'center' }}>#</th>
+                    <th onClick={() => handleSort('org_name')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', userSelect: 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>Organization Name <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th onClick={() => handleSort('vehicle_name')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', userSelect: 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>Vehicle Name <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th onClick={() => handleSort('vehicle_mode')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', userSelect: 'none', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>Vehicle Mode <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th onClick={() => handleSort('vehicle_model')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', userSelect: 'none', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>Vehicle Model <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>
+                      Sensor
+                    </th>
+                    <th onClick={() => handleSort('start_fuel')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}>Start Fuel <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th onClick={() => handleSort('end_fuel')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}>End Fuel <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th onClick={() => handleSort('refill')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}>Fuel Filling <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th onClick={() => handleSort('theft')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}>Fuel Theft <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th onClick={() => handleSort('consumption')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}>Fuel Consumption <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>
+                      Start Kms
+                    </th>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>
+                      End Kms
+                    </th>
+                    <th onClick={() => handleSort('distance')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}>Distance Travelled <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th onClick={() => handleSort('kmpl')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>Kmpl <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th onClick={() => handleSort('running_sec')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>Running Hrs <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th onClick={() => handleSort('engine_sec')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>Engine ON Hours <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>
+                      Secondary Engine Hrs
+                    </th>
+                    <th onClick={() => handleSort('idle_sec')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>Engine Idle Hrs <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th onClick={() => handleSort('lph')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>Ltr Per Hr <ArrowUpDown size={10} /></div>
+                    </th>
+                  </tr>
+                ) : (
+                  <tr style={{ background: '#0F172A' }}>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', width: '38px', textAlign: 'center' }}>#</th>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)' }}>Vehicle Name</th>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Category</th>
 
-                  {/* Type-Specific Table Headers */}
-                  {reportType === 'refill' && (
-                    <>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Start Fuel</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>End Fuel</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Refill Quantity</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Dispensed</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Consumed</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)' }}>Refill Location</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Status</th>
-                    </>
-                  )}
+                    {/* Type-Specific Table Headers */}
+                    {reportType === 'refill' && (
+                      <>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Start Fuel</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>End Fuel</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Refill Quantity</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Dispensed</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Consumed</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)' }}>Refill Location</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Status</th>
+                      </>
+                    )}
 
-                  {reportType === 'theft' && (
-                    <>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Start Fuel</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>End Fuel</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Suspected Theft</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Refill (+L)</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Consumed</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)' }}>Location</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Severity</th>
-                    </>
-                  )}
+                    {reportType === 'theft' && (
+                      <>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Start Fuel</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>End Fuel</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Suspected Theft</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Refill (+L)</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Consumed</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)' }}>Location</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Severity</th>
+                      </>
+                    )}
 
-                  {reportType === 'consolidated' && (
-                    <>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Distance</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Engine Hours</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Start Fuel</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>End Fuel</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Refill (+L)</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Theft (-L)</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Consumed</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Mileage</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Burn Rate</th>
-                    </>
-                  )}
+                    {reportType === 'kmpl' && (
+                      <>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Distance</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Running Time</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Fuel Consumed</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Actual Mileage</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Avg Speed</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Max Speed</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Rating</th>
+                      </>
+                    )}
 
-                  {reportType === 'kmpl' && (
-                    <>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Distance</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Running Time</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Fuel Consumed</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Actual Mileage</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Avg Speed</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Max Speed</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Rating</th>
-                    </>
-                  )}
+                    {reportType === 'lph' && (
+                      <>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Engine ON</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Working Time</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Idle Time</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Fuel Consumed</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Burn Rate</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Efficiency</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Current Fuel</th>
+                      </>
+                    )}
 
-                  {reportType === 'lph' && (
-                    <>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Engine ON</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Working Time</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Idle Time</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Fuel Consumed</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Burn Rate</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Efficiency</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Current Fuel</th>
-                    </>
-                  )}
-
-                  {reportType === 'consumption' && (
-                    <>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Start Fuel</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>End Fuel</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Refill (+L)</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Theft (-L)</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Net Consumed</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Distance</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Engine Hours</th>
-                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Status</th>
-                    </>
-                  )}
-                </tr>
+                    {reportType === 'consumption' && (
+                      <>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Start Fuel</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>End Fuel</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Refill (+L)</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Theft (-L)</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Net Consumed</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Distance</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Engine Hours</th>
+                        <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Status</th>
+                      </>
+                    )}
+                  </tr>
+                )}
               </thead>
               <tbody>
                 {groupedRows.map(([gName, rows], gIdx) => {
@@ -1079,7 +1393,7 @@ const FuelReportsPage = ({ type: propType }) => {
                     <React.Fragment key={gName || gIdx}>
                       {/* Group Header Strip with Group Totals */}
                       <tr style={{ background: '#E0F2FE', borderTop: '2px solid #0284C7', borderBottom: '1px solid #BAE6FD' }}>
-                        <td colSpan={20} style={{ padding: '6px 10px', fontWeight: 800, fontSize: '11.5px', color: '#0369A1', textAlign: 'left' }}>
+                        <td colSpan={22} style={{ padding: '6px 10px', fontWeight: 800, fontSize: '11.5px', color: '#0369A1', textAlign: 'left' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
                               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0284C7', display: 'inline-block' }} />
@@ -1104,7 +1418,19 @@ const FuelReportsPage = ({ type: propType }) => {
                         const consumed = row.consumption != null ? parseFloat(row.consumption) : null;
                         const kmpl = row.kmpl != null ? parseFloat(row.kmpl) : null;
                         const lph = row.lph != null ? parseFloat(row.lph) : null;
-                        const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
+
+                        const vMeta = vehicles.find(v => String(v.id) === String(row.vehicle_id));
+                        const vModel = vMeta?.metadata?.model || vMeta?.metadata?.make || vMeta?.model || 'ASHOK LEYLAND';
+                        const startKms = row.start_odometer || 0;
+                        const dist = parseFloat(row.distance_travelled || 0);
+                        const endKms = row.end_odometer || (startKms > 0 ? (startKms + Math.round(dist)) : Math.round(dist));
+
+                        const isNoData = (!row.distance_travelled || row.distance_travelled === 0) &&
+                                         (!row.consumption || row.consumption === 0) &&
+                                         (!row.total_refill || row.total_refill === 0) &&
+                                         (!row.start_fuel || row.start_fuel === 0);
+
+                        const bg = isNoData ? '#FFF5F5' : (idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC');
 
                         return (
                           <tr
@@ -1113,41 +1439,106 @@ const FuelReportsPage = ({ type: propType }) => {
                               background: bg,
                               transition: 'background 0.1s ease'
                             }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#F0F9FF'}
+                            onMouseEnter={e => e.currentTarget.style.background = isNoData ? '#FEE2E2' : '#F0F9FF'}
                             onMouseLeave={e => e.currentTarget.style.background = bg}
                           >
-                            <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', color: '#64748B', fontWeight: 600 }}>
-                              {idx + 1}
-                            </td>
+                            {reportType === 'consolidated' ? (
+                              <>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', fontWeight: 600, color: isNoData ? '#DC2626' : '#64748B' }}>
+                                  {idx + 1}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0F172A', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                  {resolveVehicleGroup(row.vehicle_id, row)}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0F172A', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                  {row.vehicle_name || row.plate || '-'}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#475569', textAlign: 'center', fontSize: '10.5px', whiteSpace: 'nowrap' }}>
+                                  {cat === 'moving' ? 'Moving Vehicle' : cat === 'generator' ? 'Generator DG' : cat === 'machinery' ? 'Machinery Asset' : 'Dispenser Bowser'}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#334155', textAlign: 'center', fontSize: '10.5px', whiteSpace: 'nowrap' }}>
+                                  {vModel}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#334155', textAlign: 'center', fontFamily: 'monospace' }}>
+                                  {vMeta?.metadata?.sensorCount || 1}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0F172A', textAlign: 'right', fontFamily: 'monospace' }}>
+                                  {row.start_fuel != null ? parseFloat(row.start_fuel).toFixed(2) : '0.00'}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0F172A', textAlign: 'right', fontFamily: 'monospace' }}>
+                                  {row.end_fuel != null ? parseFloat(row.end_fuel).toFixed(2) : '0.00'}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#059669', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700 }}>
+                                  {parseFloat(row.total_refill || 0).toFixed(2)}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : (theft > 0 ? '#DC2626' : '#64748B'), textAlign: 'right', fontFamily: 'monospace', fontWeight: theft > 0 ? 700 : 400 }}>
+                                  {parseFloat(row.total_theft || 0).toFixed(2)}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#EA580C', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700 }}>
+                                  {consumed != null ? parseFloat(consumed).toFixed(2) : '0.00'}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#334155', textAlign: 'right', fontFamily: 'monospace' }}>
+                                  {startKms}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#334155', textAlign: 'right', fontFamily: 'monospace' }}>
+                                  {endKms}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0F172A', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700 }}>
+                                  {dist.toFixed(1)}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#4F46E5', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700 }}>
+                                  {kmpl != null && kmpl > 0 ? kmpl.toFixed(2) : '-'}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0F172A', textAlign: 'center', fontFamily: 'monospace' }}>
+                                  {formatHMS(row.running_seconds)}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0284C7', textAlign: 'center', fontFamily: 'monospace', fontWeight: 600 }}>
+                                  {formatHMS(row.engine_on_seconds)}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#64748B', textAlign: 'center', fontFamily: 'monospace' }}>
+                                  00:00:00
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#D97706', textAlign: 'center', fontFamily: 'monospace' }}>
+                                  {formatHMS(row.idle_seconds)}
+                                </td>
+                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0F766E', textAlign: 'center', fontFamily: 'monospace' }}>
+                                  {lph != null && lph > 0 ? lph.toFixed(2) : '0.00'}
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', color: '#64748B', fontWeight: 600 }}>
+                                  {idx + 1}
+                                </td>
 
-                      {/* Vehicle Name */}
-                      <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', whiteSpace: 'nowrap' }}>
-                        <div style={{ fontWeight: 800, color: '#0F172A', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span>{row.vehicle_name || 'Vehicle'}</span>
-                          {row.plate && (
-                            <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, background: '#F1F5F9', padding: '1px 5px', borderRadius: '3px', border: '1px solid #E2E8F0' }}>
-                              {row.plate}
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                                {/* Vehicle Name */}
+                                <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', whiteSpace: 'nowrap' }}>
+                                  <div style={{ fontWeight: 800, color: '#0F172A', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>{row.vehicle_name || 'Vehicle'}</span>
+                                    {row.plate && (
+                                      <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, background: '#F1F5F9', padding: '1px 5px', borderRadius: '3px', border: '1px solid #E2E8F0' }}>
+                                        {row.plate}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
 
-                      {/* Category Badge */}
-                      <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        <span style={{
-                          padding: '1px 6px',
-                          borderRadius: '3px',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.02em',
-                          background: cat === 'generator' ? '#FEF3C7' : cat === 'machinery' ? '#E0E7FF' : cat === 'dispenser' ? '#CCFBF1' : '#F1F5F9',
-                          color: cat === 'generator' ? '#B45309' : cat === 'machinery' ? '#4338CA' : cat === 'dispenser' ? '#0F766E' : '#475569',
-                          border: '1px solid rgba(0,0,0,0.06)'
-                        }}>
-                          {cat}
-                        </span>
-                      </td>
+                                {/* Category Badge */}
+                                <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                  <span style={{
+                                    padding: '1px 6px',
+                                    borderRadius: '3px',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.02em',
+                                    background: cat === 'generator' ? '#FEF3C7' : cat === 'machinery' ? '#E0E7FF' : cat === 'dispenser' ? '#CCFBF1' : '#F1F5F9',
+                                    color: cat === 'generator' ? '#B45309' : cat === 'machinery' ? '#4338CA' : cat === 'dispenser' ? '#0F766E' : '#475569',
+                                    border: '1px solid rgba(0,0,0,0.06)'
+                                  }}>
+                                    {cat}
+                                  </span>
+                                </td>
 
                       {/* REFILL REPORT ROWS */}
                       {reportType === 'refill' && (
@@ -1255,38 +1646,7 @@ const FuelReportsPage = ({ type: propType }) => {
                         </>
                       )}
 
-                      {/* CONSOLIDATED MASTER REPORT ROWS */}
-                      {reportType === 'consolidated' && (
-                        <>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#0F172A' }}>
-                            {row.distance_travelled || 0} km
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#0284C7', fontWeight: 600 }}>
-                            {formatHMS(row.engine_on_seconds)}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
-                            {row.start_fuel != null ? `${row.start_fuel} L` : '-'}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
-                            {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#059669' }}>
-                            {refill > 0 ? `+${refill}` : '0'}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: theft > 0 ? '#DC2626' : '#94A3B8' }}>
-                            {theft > 0 ? `-${theft}` : '0'}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#C2410C' }}>
-                            {consumed != null ? `${consumed} L` : '-'}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: kmpl >= 3 ? '#047857' : '#D97706' }}>
-                            {kmpl != null && kmpl > 0 ? `${kmpl.toFixed(2)} km/L` : '-'}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: lph <= 3 ? '#0F766E' : '#7E22CE' }}>
-                            {lph != null && lph > 0 ? `${lph.toFixed(2)} L/h` : '-'}
-                          </td>
-                        </>
-                      )}
+
 
                       {/* KMPL MILEAGE ROWS */}
                       {reportType === 'kmpl' && (
@@ -1421,9 +1781,11 @@ const FuelReportsPage = ({ type: propType }) => {
                           </td>
                         </>
                       )}
-                    </tr>
-                          );
-                      })}
+                    </>
+                  )}
+                </tr>
+              );
+            })}
                     </React.Fragment>
                   );
                 })}

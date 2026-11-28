@@ -105,7 +105,7 @@ function App() {
             <Route path="/ShowVehDetails.html" element={<CertificateVerifyPage />} />
 
             {/* Guarded dashboard route layout shell */}
-            <Route path="/" element={<DashboardLayout vehicles={vehicles} />}>
+            <Route path="/" element={<DashboardLayout vehicles={vehicles} setVehicles={setVehicles} />}>
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage setAppVehicles={setVehicles} />} />
               <Route path="tracking" element={<TrackingPage setAppVehicles={setVehicles} />} />
@@ -123,8 +123,8 @@ function App() {
 
               {/* Individual Vehicle details */}
               <Route path="vehicles/:id" element={<VehicleDetailPage />} />
-              <Route path="history" element={<HistoryPage />} />
-              <Route path="vehicles/:id/history" element={<HistoryPage />} />
+              <Route path="history" element={<HistoryPage setAppVehicles={setVehicles} />} />
+              <Route path="vehicles/:id/history" element={<HistoryPage setAppVehicles={setVehicles} />} />
               <Route path="vehicles/:id/report" element={<ReportPage />} />
               <Route path="vehicles/:id/messages" element={<SensorLogsPage />} />
 
