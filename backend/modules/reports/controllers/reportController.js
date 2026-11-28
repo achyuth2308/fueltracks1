@@ -131,7 +131,7 @@ class ReportController {
     try {
       const { start, end } = this.parseDates(req);
       // For consolidated report, orgId must be tied to user or selected by superadmin
-      const orgId = req.user?.role === 'superadmin' ? req.query.orgId : req.user?.orgId;
+      const orgId = req.query.orgId || req.user?.orgId;
       if (!orgId && req.user?.role !== 'customer' && req.user?.role !== 'superadmin') throw new Error('orgId is required for Consolidated Report');
       
       const role = req.user?.role;

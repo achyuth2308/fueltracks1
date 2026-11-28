@@ -230,10 +230,12 @@ const ReportsAdminPage = () => {
     { path: '/admin/reports/trip', label: 'Automated Trips' },
     { path: '/admin/reports/manual-trips', label: 'Manual Trips' },
     { path: '/admin/reports/daily-trip', label: 'Total Trip' },
-    { path: '/admin/reports/consolidated', label: 'Vehicle Consolidated' }
+    { path: '/admin/reports/consolidated', label: 'Vehicle Consolidated' },
+    { path: '/admin/reports/fuel-consolidated', label: 'Fuel Consolidated', isFuel: true }
   ];
 
   const FUEL_REPORT_TABS = [
+    { path: '/admin/reports/consolidated', label: 'Vehicle Consolidated' },
     { path: '/admin/reports/fuel-refill', label: 'Fuel Refill Report', isFuel: true },
     { path: '/admin/reports/fuel-consumption', label: 'Fuel Consumption', isFuel: true },
     { path: '/admin/reports/fuel-theft', label: 'Fuel Theft Report', isFuel: true },

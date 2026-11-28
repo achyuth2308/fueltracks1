@@ -153,10 +153,14 @@ const ConsolidatedReportPage = () => {
     endTime: '23:59'
   }));
 
-  // Group options
+  // Group options (strictly official Dashboard groups)
   const groupOptions = useMemo(() => {
+    if (groups && groups.length > 0) {
+      const names = groups.map(g => g.name?.trim()).filter(Boolean);
+      names.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      return ['All', ...names];
+    }
     const names = new Set();
-    groups.forEach(g => { if (g.name) names.add(g.name.trim()); });
     vehicles.forEach(v => {
       const gn = v.group_name || v.group?.name;
       if (gn) names.add(gn.trim());
@@ -209,6 +213,10 @@ const ConsolidatedReportPage = () => {
       const params = new URLSearchParams();
       params.append('startDate', start.toISOString());
       params.append('endDate', end.toISOString());
+      const activeOrgId = vehicles[0]?.org_id;
+      if (activeOrgId) {
+        params.append('orgId', activeOrgId);
+      }
       if (activeFilters.vehicleId) {
         params.append('vehicleId', activeFilters.vehicleId);
       }
@@ -325,6 +333,7 @@ const ConsolidatedReportPage = () => {
       {/* ═══════════ LEFT: GROUP ACCORDION VEHICLE SIDEBAR ═══════════ */}
       <ReportGroupVehicleSidebar
         vehicles={vehicles}
+        groups={groups}
         selectedVehicleId={filters.vehicleId}
         selectedGroupId={selectedGroup}
         showAllOption={true}

@@ -329,6 +329,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
             { name: 'Stoppage', path: '/admin/reports/stoppage' },
             { name: 'Individual', path: '/admin/reports/individual' },
             { name: 'Vehicle Consolidated', path: '/admin/reports/consolidated' },
+            { name: 'Fuel Consolidated', path: '/admin/reports/fuel-consolidated' },
             { name: 'Non-Sensor Fuel Report', path: '/fuel-report' },
             ...(hasFuelFeature ? [{
               name: 'Fuel Reports',
