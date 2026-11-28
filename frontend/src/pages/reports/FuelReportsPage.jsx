@@ -134,19 +134,16 @@ const FuelReportsPage = ({ type: propType }) => {
     try {
       const [sY, sM, sD] = activeFilters.startDate.split('-');
       const [sH, sMin] = (activeFilters.startTime || '00:00').split(':');
-      const start = new Date(parseInt(sY, 10), parseInt(sM, 10) - 1, parseInt(sD, 10), parseInt(sH, 10), parseInt(sMin, 10), 0);
+      const startIso = `${sY}-${sM}-${sD}T${sH || '00'}:${sMin || '00'}:00+05:30`;
 
       const [eY, eM, eD] = activeFilters.endDate.split('-');
       const [eH, eMin] = (activeFilters.endTime || '23:59').split(':');
-      const end = new Date(parseInt(eY, 10), parseInt(eM, 10) - 1, parseInt(eD, 10), parseInt(eH, 10), parseInt(eMin, 10), 59, 999);
+      const endIso = `${eY}-${eM}-${eD}T${eH || '23'}:${eMin || '59'}:59.999+05:30`;
 
       const params = new URLSearchParams();
-      params.append('startDate', start.toISOString());
-      params.append('endDate', end.toISOString());
-      const activeOrgId = vehicles[0]?.org_id;
-      if (activeOrgId) {
-        params.append('orgId', activeOrgId);
-      }
+      params.append('startDate', startIso);
+      params.append('endDate', endIso);
+
       if (activeFilters.vehicleId && activeFilters.vehicleId !== 'ALL') {
         params.append('vehicleId', activeFilters.vehicleId);
       }
@@ -156,6 +153,11 @@ const FuelReportsPage = ({ type: propType }) => {
         const matchedG = groups.find(g => (g.name || '').trim().toLowerCase() === curGroup.trim().toLowerCase());
         if (matchedG?.id) {
           params.append('groupId', matchedG.id);
+        }
+      } else {
+        const activeOrgId = vehicles[0]?.org_id;
+        if (activeOrgId) {
+          params.append('orgId', activeOrgId);
         }
       }
 

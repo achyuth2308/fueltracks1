@@ -374,10 +374,8 @@ class ReportService {
     const targetVehicles = data.length <= 40 ? data : data.filter(hasFuelCap);
     const vehicleIds = (targetVehicles.length > 0 ? targetVehicles : data).map(d => d.vehicle_id);
 
-    const [intervalsMap, pointsMap] = await Promise.all([
-      reportRepository.getVehicleIntervals(vehicleIds, startDate, endDate),
-      reportRepository.getGpsPointsForVehicles(vehicleIds, startDate, endDate)
-    ]);
+    const intervalsMap = await reportRepository.getVehicleIntervals(vehicleIds, startDate, endDate);
+    const pointsMap = await reportRepository.getGpsPointsForVehicles(vehicleIds, startDate, endDate);
 
     return data.map(v => {
       const vIntervals = intervalsMap[v.vehicle_id] || [];
