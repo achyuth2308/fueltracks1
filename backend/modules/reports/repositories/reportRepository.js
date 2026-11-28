@@ -827,7 +827,7 @@ class ReportRepository {
 
     try {
       const rawMap = {};
-      const BATCH_SIZE = 4;
+      const BATCH_SIZE = 2;
       const batches = [];
       for (let i = 0; i < vehicleIds.length; i += BATCH_SIZE) {
         batches.push(vehicleIds.slice(i, i + BATCH_SIZE));
@@ -948,7 +948,7 @@ class ReportRepository {
     if (!vehicleIds || vehicleIds.length === 0) return {};
     try {
       const map = {};
-      const BATCH_SIZE = 4;
+      const BATCH_SIZE = 2;
       const batches = [];
       for (let i = 0; i < vehicleIds.length; i += BATCH_SIZE) {
         batches.push(vehicleIds.slice(i, i + BATCH_SIZE));
