@@ -386,6 +386,8 @@ class ReportService {
           running_seconds: 0,
           idle_seconds: 0,
           stopped_seconds: fullSec,
+          engine_on_seconds: 0,
+          engine_hours: 0,
           distance_travelled: 0,
           max_speed: 0,
           avg_speed: 0,
@@ -517,6 +519,8 @@ class ReportService {
       const effectiveLph = filteredFuel && filteredFuel.lph != null ? filteredFuel.lph : finalLph;
       const effectiveDist = filteredFuel && filteredFuel.distance_travelled > 0 ? filteredFuel.distance_travelled : roundedDist;
 
+      const effectiveEngineSec = runningSec + idleSec;
+
       return {
         ...v,
         start_fuel: effectiveStartFuel,
@@ -524,6 +528,8 @@ class ReportService {
         running_seconds: runningSec,
         idle_seconds: idleSec,
         stopped_seconds: stoppedSec,
+        engine_on_seconds: effectiveEngineSec,
+        engine_hours: Math.round((effectiveEngineSec / 3600) * 100) / 100,
         distance_travelled: effectiveDist,
         max_speed: Math.round(maxSpd),
         avg_speed: movingCount > 0 ? Math.round(speedSum / movingCount) : 0,
