@@ -97,18 +97,21 @@ class ReportService {
     const vehicleDetails = await this.getVehicleDetails(vehicleIds);
 
     let allTrips = [];
-    for (const vId of vehicleIds) {
-      const trips = await reportRepository.getTrips(vId, startDate, endDate);
-      const vInfo = vehicleDetails[vId] || {};
-      trips.forEach(t => {
-        allTrips.push({
+    const batchSize = 6;
+    for (let i = 0; i < vehicleIds.length; i += batchSize) {
+      const batch = vehicleIds.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map(async vId => {
+        const trips = await reportRepository.getTrips(vId, startDate, endDate);
+        const vInfo = vehicleDetails[vId] || {};
+        return trips.map(t => ({
           ...t,
           vehicle_id: vId,
           vehicle_name: vInfo.name,
           plate: vInfo.plate,
           org_name: vInfo.org_name
-        });
-      });
+        }));
+      }));
+      batchResults.forEach(trips => allTrips.push(...trips));
     }
     // Sort overall by start_time
     return allTrips.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
@@ -119,18 +122,21 @@ class ReportService {
     const vehicleDetails = await this.getVehicleDetails(vehicleIds);
 
     let allDailyTrips = [];
-    for (const vId of vehicleIds) {
-      const dailyTrips = await reportRepository.getDailyTrips(vId, startDate, endDate);
-      const vInfo = vehicleDetails[vId] || {};
-      dailyTrips.forEach(dt => {
-        allDailyTrips.push({
+    const batchSize = 6;
+    for (let i = 0; i < vehicleIds.length; i += batchSize) {
+      const batch = vehicleIds.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map(async vId => {
+        const dailyTrips = await reportRepository.getDailyTrips(vId, startDate, endDate);
+        const vInfo = vehicleDetails[vId] || {};
+        return dailyTrips.map(dt => ({
           ...dt,
           vehicle_id: vId,
           vehicle_name: vInfo.name,
           plate: vInfo.plate,
           org_name: vInfo.org_name
-        });
-      });
+        }));
+      }));
+      batchResults.forEach(dailyTrips => allDailyTrips.push(...dailyTrips));
     }
     // Sort overall by date DESC
     return allDailyTrips.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -141,27 +147,30 @@ class ReportService {
     const vehicleDetails = await this.getVehicleDetails(vehicleIds);
 
     let allData = [];
-    for (const vId of vehicleIds) {
-      const data = await reportRepository.getDailyDistance(vId, startDate, endDate);
-      const vInfo = vehicleDetails[vId] || {};
-      const baseline = parseFloat(vInfo.baseline) || 0;
+    const batchSize = 6;
+    for (let i = 0; i < vehicleIds.length; i += batchSize) {
+      const batch = vehicleIds.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map(async vId => {
+        const data = await reportRepository.getDailyDistance(vId, startDate, endDate);
+        const vInfo = vehicleDetails[vId] || {};
+        const baseline = parseFloat(vInfo.baseline) || 0;
 
-      // We can also fetch trip count for that day
-      // But to keep it efficient, we just return the distance for now, or we can do a sub-fetch.
-      data.forEach(d => {
-        if (baseline > 0) {
-          const snapshot = parseFloat(vInfo.snapshot) || 0;
-          d.start_odometer = Math.round((baseline + Math.max(0, (d.start_odometer || 0) - snapshot)) * 100) / 100;
-          d.end_odometer = Math.round((baseline + Math.max(0, (d.end_odometer || 0) - snapshot)) * 100) / 100;
-        }
-        allData.push({
-          ...d,
-          vehicle_id: vId,
-          vehicle_name: vInfo.name,
-          plate: vInfo.plate,
-          org_name: vInfo.org_name
+        return data.map(d => {
+          if (baseline > 0) {
+            const snapshot = parseFloat(vInfo.snapshot) || 0;
+            d.start_odometer = Math.round((baseline + Math.max(0, (d.start_odometer || 0) - snapshot)) * 100) / 100;
+            d.end_odometer = Math.round((baseline + Math.max(0, (d.end_odometer || 0) - snapshot)) * 100) / 100;
+          }
+          return {
+            ...d,
+            vehicle_id: vId,
+            vehicle_name: vInfo.name,
+            plate: vInfo.plate,
+            org_name: vInfo.org_name
+          };
         });
-      });
+      }));
+      batchResults.forEach(data => allData.push(...data));
     }
     return allData.sort((a, b) => new Date(b.date) - new Date(a.date));
   }
@@ -171,21 +180,29 @@ class ReportService {
     const vehicleDetails = await this.getVehicleDetails(vehicleIds);
 
     let allData = [];
-    for (const vId of vehicleIds) {
-      const data = await reportRepository.getActivity(vId, startDate, endDate);
-      const trips = await reportRepository.getTrips(vId, startDate, endDate);
+    const batchSize = 6;
+    for (let i = 0; i < vehicleIds.length; i += batchSize) {
+      const batch = vehicleIds.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map(async vId => {
+        const [data, trips] = await Promise.all([
+          reportRepository.getActivity(vId, startDate, endDate),
+          reportRepository.getTrips(vId, startDate, endDate)
+        ]);
 
-      const vInfo = vehicleDetails[vId] || {};
-      if (data) {
-        allData.push({
-          ...data,
-          trip_count: trips.length,
-          vehicle_id: vId,
-          vehicle_name: vInfo.name,
-          plate: vInfo.plate,
-          org_name: vInfo.org_name
-        });
-      }
+        const vInfo = vehicleDetails[vId] || {};
+        if (data) {
+          return {
+            ...data,
+            trip_count: trips.length,
+            vehicle_id: vId,
+            vehicle_name: vInfo.name,
+            plate: vInfo.plate,
+            org_name: vInfo.org_name
+          };
+        }
+        return null;
+      }));
+      batchResults.filter(Boolean).forEach(row => allData.push(row));
     }
     return allData;
   }
@@ -222,18 +239,21 @@ class ReportService {
     const vehicleDetails = await this.getVehicleDetails(vehicleIds);
 
     let allEvents = [];
-    for (const vId of vehicleIds) {
-      const events = await reportRepository.getIgnitionEvents(vId, startDate, endDate);
-      const vInfo = vehicleDetails[vId] || {};
-      events.forEach(e => {
-        allEvents.push({
+    const batchSize = 6;
+    for (let i = 0; i < vehicleIds.length; i += batchSize) {
+      const batch = vehicleIds.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map(async vId => {
+        const events = await reportRepository.getIgnitionEvents(vId, startDate, endDate);
+        const vInfo = vehicleDetails[vId] || {};
+        return events.map(e => ({
           ...e,
           vehicle_id: vId,
           vehicle_name: vInfo.name,
           plate: vInfo.plate,
           org_name: vInfo.org_name
-        });
-      });
+        }));
+      }));
+      batchResults.forEach(events => allEvents.push(...events));
     }
     return allEvents.sort((a, b) => new Date(b.device_time) - new Date(a.device_time));
   }
@@ -243,11 +263,13 @@ class ReportService {
     const vehicleDetails = await this.getVehicleDetails(vehicleIds);
 
     let allEvents = [];
-    for (const vId of vehicleIds) {
-      const events = await reportRepository.getOverspeeding(vId, startDate, endDate, speedLimit);
-      const vInfo = vehicleDetails[vId] || {};
-      events.forEach(e => {
-        allEvents.push({
+    const batchSize = 6;
+    for (let i = 0; i < vehicleIds.length; i += batchSize) {
+      const batch = vehicleIds.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map(async vId => {
+        const events = await reportRepository.getOverspeeding(vId, startDate, endDate, speedLimit);
+        const vInfo = vehicleDetails[vId] || {};
+        return events.map(e => ({
           ...e,
           vehicle_id: vId,
           vehicle_name: vInfo.name,
@@ -255,8 +277,9 @@ class ReportService {
           org_name: vInfo.org_name,
           driver_name: vInfo.driver_name,
           driver_phone: vInfo.driver_phone
-        });
-      });
+        }));
+      }));
+      batchResults.forEach(events => allEvents.push(...events));
     }
     return allEvents.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
   }
@@ -266,18 +289,21 @@ class ReportService {
     const vehicleDetails = await this.getVehicleDetails(vehicleIds);
 
     let allStoppages = [];
-    for (const vId of vehicleIds) {
-      const stoppages = await reportRepository.getStoppages(vId, startDate, endDate);
-      const vInfo = vehicleDetails[vId] || {};
-      stoppages.forEach(s => {
-        allStoppages.push({
+    const batchSize = 6;
+    for (let i = 0; i < vehicleIds.length; i += batchSize) {
+      const batch = vehicleIds.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map(async vId => {
+        const stoppages = await reportRepository.getStoppages(vId, startDate, endDate);
+        const vInfo = vehicleDetails[vId] || {};
+        return stoppages.map(s => ({
           ...s,
           vehicle_id: vId,
           vehicle_name: vInfo.name,
           plate: vInfo.plate,
           org_name: vInfo.org_name
-        });
-      });
+        }));
+      }));
+      batchResults.forEach(stoppages => allStoppages.push(...stoppages));
     }
     return allStoppages.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
   }
@@ -285,6 +311,11 @@ class ReportService {
   async getConsolidatedReport(orgId, role, userId, startDate, endDate, vehicleId, groupId) {
     const data = await reportRepository.getConsolidatedActivity(orgId, role, userId, startDate, endDate, vehicleId, groupId);
     if (!data || data.length === 0) return [];
+
+    // Fast-path: If aggregated from summary tables, return immediately (<10ms) without 2 heavy raw scans
+    if (data[0]?._from_summary) {
+      return data;
+    }
 
     const vehicleIds = data.map(d => d.vehicle_id);
     const [intervalsMap, pointsMap] = await Promise.all([

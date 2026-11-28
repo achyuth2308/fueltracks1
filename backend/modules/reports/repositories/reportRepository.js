@@ -684,6 +684,98 @@ class ReportRepository {
       vehicleFilter += ` AND v.id = $${params.length}`;
     }
 
+    // ── 1. FAST PATH: Check pre-aggregated daily summaries first (< 10ms read) ──
+    try {
+      const summaryQuery = `
+        SELECT
+            v.id AS vehicle_id,
+            v.name AS vehicle_name,
+            v.plate,
+            v.metadata,
+            CASE 
+              WHEN (
+                COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%dispenser%'
+                OR COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%bowser%'
+                OR COALESCE(v.model, '') ILIKE '%dispenser%'
+                OR COALESCE(v.model, '') ILIKE '%bowser%'
+                OR COALESCE(v.name, '') ILIKE '%dispenser%'
+                OR COALESCE(v.name, '') ILIKE '%bowser%'
+                OR COALESCE(v.name, '') ILIKE '%fkpcm%'
+              ) THEN 'dispenser'
+              WHEN (
+                COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%generator%'
+                OR COALESCE(v.metadata->>'modeOfVehicle', '') ILIKE '%generator%'
+                OR COALESCE(v.model, '') ILIKE '%generator%'
+                OR COALESCE(v.name, '') ILIKE '%generator%'
+              ) THEN 'generator'
+              WHEN (
+                COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%machinery%'
+                OR COALESCE(v.model, '') ILIKE '%machinery%'
+                OR COALESCE(v.name, '') ILIKE '%jcb%'
+              ) THEN 'machinery'
+              ELSE 'moving'
+            END AS vehicle_category,
+            COALESCE(SUM(s.moving_time_sec), 0)::integer AS running_seconds,
+            COALESCE(SUM(s.idle_time_sec), 0)::integer AS idle_seconds,
+            COALESCE(SUM(s.parked_time_sec), 0)::integer AS stopped_seconds,
+            COALESCE(SUM(s.moving_time_sec + s.idle_time_sec), 0)::integer AS engine_on_seconds,
+            COALESCE(ROUND(SUM(s.total_km)::numeric, 2), 0) AS distance_travelled,
+            COALESCE(MAX(s.max_speed), 0) AS max_speed,
+            COALESCE(ROUND(AVG(NULLIF(s.avg_speed, 0))::numeric, 1), 0) AS avg_speed,
+            NULL::numeric AS start_fuel,
+            NULL::numeric AS end_fuel,
+            COALESCE(vls.lat, 0) AS start_lat,
+            COALESCE(vls.lng, 0) AS start_lng,
+            COALESCE(vls.lat, 0) AS end_lat,
+            COALESCE(vls.lng, 0) AS end_lng,
+            COALESCE(ROUND(SUM(s.fuel_refill_litres)::numeric, 1), 0) AS total_refill,
+            0 AS total_dispensed,
+            COALESCE(ROUND(SUM(s.fuel_drain_litres)::numeric, 1), 0) AS total_theft,
+            COALESCE(ROUND(SUM(s.fuel_consumed_litres)::numeric, 1), 0) AS consumption,
+            CASE
+              WHEN SUM(s.fuel_consumed_litres) > 0 AND SUM(s.total_km) > 0
+              THEN ROUND((SUM(s.total_km) / SUM(s.fuel_consumed_litres))::numeric, 2)
+              ELSE NULL
+            END AS kmpl,
+            CASE
+              WHEN SUM(s.fuel_consumed_litres) > 0 AND SUM(s.moving_time_sec + s.idle_time_sec) > 0
+              THEN ROUND((SUM(s.fuel_consumed_litres) / ((SUM(s.moving_time_sec + s.idle_time_sec)) / 3600.0))::numeric, 2)
+              ELSE NULL
+            END AS lph,
+            TRUE AS _from_summary
+        FROM vehicles v
+        LEFT JOIN vehicle_latest_state vls ON vls.vehicle_id = v.id
+        JOIN vehicle_daily_summary s ON s.vehicle_id = v.id
+             AND s.report_date >= DATE($2 AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
+             AND s.report_date <= DATE($3 AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
+        WHERE ${vehicleFilter}
+        GROUP BY v.id, v.name, v.plate, v.metadata, v.model, vls.lat, vls.lng, vls.today_distance, vls.today_distance_date
+        ORDER BY v.name;
+      `;
+      const summaryRes = await db.query(summaryQuery, params);
+      if (summaryRes.rows && summaryRes.rows.length > 0) {
+        const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        const endDateIST = new Date(endDate).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+        // If today is in the range, seamlessly append live today metrics
+        return summaryRes.rows.map(row => {
+          if (endDateIST >= todayIST && row.today_distance_date === todayIST) {
+            const liveDist = parseFloat(row.today_distance || 0);
+            if (liveDist > 0) {
+              row.distance_travelled = Math.round((parseFloat(row.distance_travelled || 0) + liveDist) * 100) / 100;
+              if (row.consumption > 0) {
+                row.kmpl = Math.round((row.distance_travelled / row.consumption) * 100) / 100;
+              }
+            }
+          }
+          return row;
+        });
+      }
+    } catch (summaryErr) {
+      console.warn('[REPORT_REPO] Consolidated summary fast-path bypass:', summaryErr.message);
+    }
+
+    // ── 2. FALLBACK: Raw hypertable calculation ──────────────────────────────
     const query = `
       WITH raw AS (
           SELECT
