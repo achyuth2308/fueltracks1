@@ -324,6 +324,51 @@ class ReportRepository {
    * Uses Haversine per-point with LAG() partitioned by IST date.
    */
   async getDailyDistance(vehicleId, startDate, endDate) {
+    // 1. FAST PATH: Check pre-aggregated daily summaries first (sub-millisecond read)
+    try {
+      const summaryQuery = `
+        SELECT
+          TO_CHAR(report_date, 'YYYY-MM-DD') AS date,
+          total_km AS distance_travelled,
+          COALESCE(start_odometer, 0) AS start_odometer,
+          COALESCE(end_odometer, 0) AS end_odometer
+        FROM vehicle_daily_summary
+        WHERE vehicle_id = $1
+          AND report_date >= DATE($2 AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
+          AND report_date <= DATE($3 AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
+        ORDER BY report_date ASC;
+      `;
+      const summaryRes = await db.query(summaryQuery, [vehicleId, startDate, endDate]);
+      if (summaryRes.rows.length > 0) {
+        // If today is within range and not yet rolled up, append today's live distance
+        const now = new Date();
+        const todayIstStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        const hasToday = summaryRes.rows.some(r => r.date === todayIstStr);
+        const endIstStr = new Date(endDate).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+        if (!hasToday && endIstStr >= todayIstStr) {
+          const liveRes = await db.query(
+            `SELECT today_distance, odometer FROM vehicle_latest_state WHERE vehicle_id = $1`,
+            [vehicleId]
+          );
+          if (liveRes.rows[0]) {
+            const todayDist = parseFloat(liveRes.rows[0].today_distance) || 0;
+            const curOdo = parseFloat(liveRes.rows[0].odometer) || 0;
+            summaryRes.rows.push({
+              date: todayIstStr,
+              distance_travelled: todayDist,
+              start_odometer: Math.max(0, curOdo - todayDist),
+              end_odometer: curOdo
+            });
+          }
+        }
+        return summaryRes.rows;
+      }
+    } catch (_) {
+      // Fall through gracefully if summary table read fails
+    }
+
+    // 2. FALLBACK PATH: Raw point computation
     const query = `
       WITH raw AS (
           SELECT
@@ -362,6 +407,26 @@ class ReportRepository {
    * Vehicle Activity Report (Running / Idle / Stopped time + distance)
    */
   async getActivity(vehicleId, startDate, endDate) {
+    // 1. FAST PATH: Check pre-aggregated daily summaries
+    try {
+      const summaryQuery = `
+        SELECT 
+          COALESCE(SUM(moving_time_sec), 0)::integer AS running_seconds,
+          COALESCE(SUM(idle_time_sec), 0)::integer AS idle_seconds,
+          COALESCE(SUM(parked_time_sec), 0)::integer AS stopped_seconds,
+          COALESCE(ROUND(SUM(total_km)::numeric, 2), 0) AS distance_travelled
+        FROM vehicle_daily_summary
+        WHERE vehicle_id = $1
+          AND report_date >= DATE($2 AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
+          AND report_date <= DATE($3 AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata');
+      `;
+      const sRes = await db.query(summaryQuery, [vehicleId, startDate, endDate]);
+      if (sRes.rows[0] && (sRes.rows[0].running_seconds > 0 || sRes.rows[0].stopped_seconds > 0 || sRes.rows[0].distance_travelled > 0)) {
+        return sRes.rows[0];
+      }
+    } catch (_) {}
+
+    // 2. FALLBACK PATH
     const query = `
       WITH raw AS (
           SELECT
@@ -774,10 +839,10 @@ class ReportRepository {
           COALESCE(a.avg_speed, 0) AS avg_speed,
           a.start_fuel,
           a.end_fuel,
-          COALESCE(a.start_lat, (SELECT lat FROM gps_points WHERE vehicle_id = v.id ORDER BY device_time DESC LIMIT 1)) AS start_lat,
-          COALESCE(a.start_lng, (SELECT lng FROM gps_points WHERE vehicle_id = v.id ORDER BY device_time DESC LIMIT 1)) AS start_lng,
-          COALESCE(a.end_lat, (SELECT lat FROM gps_points WHERE vehicle_id = v.id ORDER BY device_time DESC LIMIT 1)) AS end_lat,
-          COALESCE(a.end_lng, (SELECT lng FROM gps_points WHERE vehicle_id = v.id ORDER BY device_time DESC LIMIT 1)) AS end_lng,
+          COALESCE(a.start_lat, vls.lat) AS start_lat,
+          COALESCE(a.start_lng, vls.lng) AS start_lng,
+          COALESCE(a.end_lat, vls.lat) AS end_lat,
+          COALESCE(a.end_lng, vls.lng) AS end_lng,
           COALESCE(a.total_refill, 0) AS total_refill,
           COALESCE(a.total_dispensed, 0) AS total_dispensed,
           COALESCE(a.total_theft, 0) AS total_theft,
@@ -797,6 +862,7 @@ class ReportRepository {
             ELSE NULL
           END AS lph
       FROM vehicles v
+      LEFT JOIN vehicle_latest_state vls ON vls.vehicle_id = v.id
       LEFT JOIN aggregated a ON v.id = a.vehicle_id
       WHERE ${vehicleFilter}
       ORDER BY v.name;

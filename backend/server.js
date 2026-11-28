@@ -795,6 +795,14 @@ async function bootstrap() {
       }
     }
 
+    // 5d. Daily Fleet Pre-Aggregator Rollup Scheduler (triggers at 00:05 IST)
+    try {
+      const dailyRollupService = require('./services/dailyRollupService');
+      dailyRollupService.startScheduler();
+    } catch (rollupErr) {
+      console.error('[DAILY-ROLLUP] Scheduler startup error:', rollupErr.message);
+    }
+
   } catch (err) {
     console.error('[BOOT] Bootstrap failed:', err);
     process.exit(1);

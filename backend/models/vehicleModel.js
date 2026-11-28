@@ -459,9 +459,29 @@ const VehicleModel = {
       }
     }
 
-    // Invalidate cache for both the old IMEI (now stale) and the new IMEI
-    // (may exist from a previous registration of the same device).
-    const keysToDelete = [oldImei, newImei].filter(Boolean).map(i => `vehicle:imei:${i}`);
+    // Reset coordinates and speed in vehicle_latest_state so incoming packets from the new hardware
+    // do not trigger impossible GPS jump (>250 km/h) or live stream timestamp rollback filters
+    await db.query(
+      `UPDATE vehicle_latest_state 
+       SET lat = NULL, lng = NULL, speed = 0, is_online = FALSE, last_seen = NOW(), updated_at = NOW() 
+       WHERE vehicle_id = $1`,
+      [vehicleId]
+    );
+
+    // Invalidate and purge ALL tracking state keys for both old and new IMEIs
+    // so locationSubscriber starts with a clean baseline (prevState = null)
+    const imeis = [oldImei, newImei].filter(Boolean);
+    const keysToDelete = [];
+    for (const im of imeis) {
+      keysToDelete.push(
+        `vehicle:imei:${im}`,
+        `vehicle:state:${im}`,
+        `vehicle:online:${im}`,
+        `veh:last:${im}`,
+        `dist:throttle:${im}`
+      );
+    }
+    keysToDelete.push(`vehicle:stable_ignition:${vehicleId}`, `dist:throttle:${vehicleId}`);
     if (keysToDelete.length) {
       try { await redis.del(...keysToDelete); } catch (_) {}
     }
@@ -510,14 +530,26 @@ const VehicleModel = {
       [newVehicle.id]
     );
 
-    // 5. Update devices table to point to new vehicle and new org
+    // 5. Update devices table to point to new vehicle UUID and new org
     await db.query(
       `UPDATE devices SET vehicle_id = $1, org_id = $2, updated_at = NOW() WHERE device_id = $3`,
-      [newVehicle.plate, finalOrgId, imei]
+      [newVehicle.id, finalOrgId, imei]
     );
 
-    // 6. Invalidate Redis cache
-    try { await redis.del(`vehicle:imei:${imei}`); } catch (_) {}
+    // 6. Invalidate Redis cache & telemetry states
+    try {
+      await redis.del(
+        `vehicle:imei:${imei}`,
+        `vehicle:state:${imei}`,
+        `vehicle:online:${imei}`,
+        `veh:last:${imei}`,
+        `dist:throttle:${imei}`,
+        `dist:throttle:${oldVehicleId}`,
+        `dist:throttle:${newVehicle.id}`,
+        `vehicle:stable_ignition:${oldVehicleId}`,
+        `vehicle:stable_ignition:${newVehicle.id}`
+      );
+    } catch (_) {}
 
     return newVehicle;
   },

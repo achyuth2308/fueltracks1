@@ -122,7 +122,16 @@ function initB20Server(port, protocolStats, connectedDevices, publisher) {
           '015222900165': '863372050228849', // OBD_TG07U0911
           '015222900135': '863372050222883'  // OBD_TS07FL4958
         };
-        const imei = B20_DEVICE_MAP[terminalId] || terminalId;
+        let imei = B20_DEVICE_MAP[terminalId] || terminalId;
+        if (terminalId && !B20_DEVICE_MAP[terminalId] && publisher && typeof publisher.getClient === 'function') {
+          try {
+            const redisClient = publisher.getClient();
+            if (redisClient) {
+              const mapped = await redisClient.get(`terminal:map:${terminalId}`);
+              if (mapped) imei = mapped;
+            }
+          } catch (_) {}
+        }
         parsed.imei = imei;
         parsed.terminalId = terminalId;
         parsed.rawPacket = frame.toString('hex').toUpperCase();
