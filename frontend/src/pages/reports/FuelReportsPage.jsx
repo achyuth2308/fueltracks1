@@ -592,7 +592,6 @@ const FuelReportsPage = ({ type: propType }) => {
         const endKms = row.end_odometer || (startKms > 0 ? (startKms + Math.round(dist)) : Math.round(dist));
 
         return {
-          'S.No': idx + 1,
           'Organization Name': resolveVehicleGroup(row.vehicle_id, row),
           'Vehicle Name': vName,
           'Vehicle Mode': cat === 'moving' ? 'Moving Vehicle' : cat === 'generator' ? 'Generator DG' : cat === 'machinery' ? 'Machinery Asset' : 'Dispenser Bowser',
@@ -611,7 +610,12 @@ const FuelReportsPage = ({ type: propType }) => {
           'Engine ON Hours': formatHMS(row.engine_on_seconds),
           'Secondary Engine Hrs': '00:00:00',
           'Engine Idle Hrs': formatHMS(row.idle_seconds),
-          'Ltr Per Hr': row.lph != null && row.lph > 0 ? parseFloat(row.lph).toFixed(2) : '0.00'
+          'Ltr Per Hr': row.lph != null && row.lph > 0 ? parseFloat(row.lph).toFixed(2) : '0.00',
+          'Start Loc': (row.start_lat && row.start_lng) ? `${row.start_lat}, ${row.start_lng}` : '-',
+          'End Loc': (row.end_lat && row.end_lng) ? `${row.end_lat}, ${row.end_lng}` : '-',
+          'Driver Name': vMeta?.driver_name || row.driver_name || '-',
+          'Driver Mobile Number': vMeta?.driver_phone || row.driver_phone || '-',
+          'Remarks': vMeta?.metadata?.sensor_id ? (`SENSOR: ${vMeta.metadata.sensor_id}`) : (row.remarks || '-')
         };
       }
 
@@ -737,51 +741,108 @@ const FuelReportsPage = ({ type: propType }) => {
         flexShrink: 0
       }}>
         {/* Title row with Quick Presets */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              width: '26px', height: '26px', borderRadius: '6px',
-              background: `${config.accentColor}18`,
-              border: `1px solid ${config.accentColor}35`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <IconComp size={15} color={config.accentColor} />
-            </div>
+        {reportType === 'consolidated' ? (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            padding: '2px 0'
+          }}>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>Consolidated Fuel Report</span>
+              <Info size={16} color="#0284C7" title="Consolidated fleet fuel, filling, theft, mileage and operational summary" style={{ cursor: 'pointer' }} />
+            </h3>
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>{config.title}</span>
-                {reportType === 'consolidated' && (
-                  <Info size={14} color="#0284C7" title="Consolidated fleet fuel, filling, theft, mileage and operational summary" style={{ cursor: 'pointer' }} />
-                )}
-              </h3>
-              <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, background: '#F8FAFC', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E2E8F0', textTransform: 'uppercase' }}>
-                {config.badgeText}
-              </span>
-              <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>
-                • {formatBannerDateTime(filters.startDate, filters.startTime)} to {formatBannerDateTime(filters.endDate, filters.endTime)}
-              </span>
+              <select
+                value={selectedGroup}
+                onChange={e => {
+                  const newG = e.target.value;
+                  setSelectedGroup(newG);
+                  const updated = { ...filters, vehicleId: 'ALL' };
+                  setFilters(updated);
+                  handleFetchReport(updated, newG);
+                }}
+                style={{
+                  padding: '5px 8px',
+                  borderRadius: '5px',
+                  border: '1px solid #CBD5E1',
+                  background: '#FFFFFF',
+                  color: '#0F172A',
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  outline: 'none',
+                  minWidth: '130px'
+                }}
+              >
+                {groupOptions.map(gName => (
+                  <option key={gName} value={gName}>
+                    {gName === 'All' ? 'All Groups' : gName}
+                  </option>
+                ))}
+              </select>
+
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Select Date:</span>
+              <TelematicsDatePicker
+                value={filters.startDate}
+                onChange={(isoDate) => {
+                  setActivePreset(null);
+                  setFilters(prev => ({ ...prev, startDate: isoDate, endDate: isoDate }));
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => handleFetchReport()}
+                disabled={loading}
+                style={{
+                  padding: '5px 16px',
+                  borderRadius: '4px',
+                  border: '1px solid #94A3B8',
+                  background: '#F8FAFC',
+                  color: '#0F172A',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: loading ? 'wait' : 'pointer'
+                }}
+              >
+                {loading ? <Loader2 size={12} className="animate-spin" /> : null}
+                Submit
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '22px', height: '14px', background: '#DC2626', display: 'inline-block', borderRadius: '2px' }} />
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A' }}>No Data Vehicles</span>
             </div>
           </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '26px', height: '26px', borderRadius: '6px',
+                background: `${config.accentColor}18`,
+                border: `1px solid ${config.accentColor}35`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                <IconComp size={15} color={config.accentColor} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>{config.title}</span>
+                </h3>
+                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, background: '#F8FAFC', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E2E8F0', textTransform: 'uppercase' }}>
+                  {config.badgeText}
+                </span>
+                <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>
+                  • {formatBannerDateTime(filters.startDate, filters.startTime)} to {formatBannerDateTime(filters.endDate, filters.endTime)}
+                </span>
+              </div>
+            </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            {reportType === 'consolidated' && (
-              <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '11px',
-                fontWeight: 700,
-                background: '#FEF2F2',
-                color: '#991B1B',
-                padding: '3px 8px',
-                borderRadius: '4px',
-                border: '1px solid #FECACA',
-                marginRight: '4px'
-              }}>
-                <span style={{ width: '10px', height: '10px', background: '#DC2626', borderRadius: '2px', display: 'inline-block' }} />
-                <span>No Data Vehicles</span>
-              </div>
-            )}
             <button
               type="button"
               onClick={() => handlePreset('yesterday')}
@@ -1057,6 +1118,8 @@ const FuelReportsPage = ({ type: propType }) => {
             </button>
           </div>
         </div>
+      </>
+    )}
       </div>
 
       {/* 2. Compact KPI Summary Bar OR Consolidated 2-Column Matrix */}
@@ -1252,63 +1315,77 @@ const FuelReportsPage = ({ type: propType }) => {
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 {reportType === 'consolidated' ? (
                   <tr style={{ background: '#0F172A' }}>
-                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', width: '35px', textAlign: 'center' }}>#</th>
-                    <th onClick={() => handleSort('org_name')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', userSelect: 'none' }}>
+                    <th onClick={() => handleSort('org_name')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>Organization Name <ArrowUpDown size={10} /></div>
                     </th>
-                    <th onClick={() => handleSort('vehicle_name')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', userSelect: 'none' }}>
+                    <th onClick={() => handleSort('vehicle_name')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>Vehicle Name <ArrowUpDown size={10} /></div>
                     </th>
-                    <th onClick={() => handleSort('vehicle_mode')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', userSelect: 'none', textAlign: 'center' }}>
+                    <th onClick={() => handleSort('vehicle_mode')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', userSelect: 'none', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>Vehicle Mode <ArrowUpDown size={10} /></div>
                     </th>
-                    <th onClick={() => handleSort('vehicle_model')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', userSelect: 'none', textAlign: 'center' }}>
+                    <th onClick={() => handleSort('vehicle_model')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', userSelect: 'none', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>Vehicle Model <ArrowUpDown size={10} /></div>
                     </th>
-                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       Sensor
                     </th>
-                    <th onClick={() => handleSort('start_fuel')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
+                    <th onClick={() => handleSort('start_fuel')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}>Start Fuel <ArrowUpDown size={10} /></div>
                     </th>
-                    <th onClick={() => handleSort('end_fuel')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
+                    <th onClick={() => handleSort('end_fuel')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}>End Fuel <ArrowUpDown size={10} /></div>
                     </th>
-                    <th onClick={() => handleSort('refill')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
+                    <th onClick={() => handleSort('refill')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}>Fuel Filling <ArrowUpDown size={10} /></div>
                     </th>
-                    <th onClick={() => handleSort('theft')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
+                    <th onClick={() => handleSort('theft')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}>Fuel Theft <ArrowUpDown size={10} /></div>
                     </th>
-                    <th onClick={() => handleSort('consumption')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
+                    <th onClick={() => handleSort('consumption')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}>Fuel Consumption <ArrowUpDown size={10} /></div>
                     </th>
-                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', whiteSpace: 'nowrap' }}>
                       Start Kms
                     </th>
-                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', whiteSpace: 'nowrap' }}>
                       End Kms
                     </th>
-                    <th onClick={() => handleSort('distance')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
+                    <th onClick={() => handleSort('distance')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}>Distance Travelled <ArrowUpDown size={10} /></div>
                     </th>
-                    <th onClick={() => handleSort('kmpl')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}>
+                    <th onClick={() => handleSort('kmpl')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>Kmpl <ArrowUpDown size={10} /></div>
                     </th>
-                    <th onClick={() => handleSort('running_sec')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}>
+                    <th onClick={() => handleSort('running_sec')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>Running Hrs <ArrowUpDown size={10} /></div>
                     </th>
-                    <th onClick={() => handleSort('engine_sec')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}>
+                    <th onClick={() => handleSort('engine_sec')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>Engine ON Hours <ArrowUpDown size={10} /></div>
                     </th>
-                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       Secondary Engine Hrs
                     </th>
-                    <th onClick={() => handleSort('idle_sec')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}>
+                    <th onClick={() => handleSort('idle_sec')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>Engine Idle Hrs <ArrowUpDown size={10} /></div>
                     </th>
-                    <th onClick={() => handleSort('lph')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}>
+                    <th onClick={() => handleSort('lph')} style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>Ltr Per Hr <ArrowUpDown size={10} /></div>
+                    </th>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      Start Loc
+                    </th>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      End Loc
+                    </th>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      Driver Name
+                    </th>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      Driver Mobile Number
+                    </th>
+                    <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                      Remarks
                     </th>
                   </tr>
                 ) : (
@@ -1381,415 +1458,544 @@ const FuelReportsPage = ({ type: propType }) => {
                   </tr>
                 )}
               </thead>
-              <tbody>
-                {groupedRows.map(([gName, rows], gIdx) => {
-                  const gConsumed = rows.reduce((acc, r) => acc + (parseFloat(r.consumption) || 0), 0);
-                  const gRefill = rows.reduce((acc, r) => acc + (parseFloat(r.total_refill) || 0), 0);
-                  const gTheft = rows.reduce((acc, r) => acc + (parseFloat(r.total_theft) || 0), 0);
-                  const gDist = rows.reduce((acc, r) => acc + (parseFloat(r.distance_travelled) || 0), 0);
-                  const gKmpl = gConsumed > 0 ? (gDist / gConsumed).toFixed(2) : '-';
+              {reportType === 'consolidated' ? (
+                <>
+                  <tbody>
+                    {sortedData.map((row, idx) => {
+                      const cat = (row.vehicle_category || 'moving').toLowerCase();
+                      const refill = parseFloat(row.total_refill || 0);
+                      const theft = parseFloat(row.total_theft || 0);
+                      const consumed = row.consumption != null ? parseFloat(row.consumption) : null;
+                      const kmpl = row.kmpl != null ? parseFloat(row.kmpl) : null;
+                      const lph = row.lph != null ? parseFloat(row.lph) : null;
 
-                  return (
-                    <React.Fragment key={gName || gIdx}>
-                      {/* Group Header Strip with Group Totals */}
-                      <tr style={{ background: '#E0F2FE', borderTop: '2px solid #0284C7', borderBottom: '1px solid #BAE6FD' }}>
-                        <td colSpan={22} style={{ padding: '6px 10px', fontWeight: 800, fontSize: '11.5px', color: '#0369A1', textAlign: 'left' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0284C7', display: 'inline-block' }} />
-                              Group: {gName} ({rows.length} {rows.length === 1 ? 'Vehicle' : 'Vehicles'})
-                            </span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11px', fontWeight: 700, color: '#0F172A' }}>
-                              <span>Distance: <strong style={{ color: '#0284C7' }}>{Math.round(gDist)} km</strong></span>
-                              <span>Refill: <strong style={{ color: '#059669' }}>+{Math.round(gRefill)} L</strong></span>
-                              <span>Theft: <strong style={{ color: gTheft > 0 ? '#DC2626' : '#64748B' }}>{Math.round(gTheft)} L</strong></span>
-                              <span>Consumed: <strong style={{ color: '#EA580C' }}>{Math.round(gConsumed)} L</strong></span>
-                              <span>Avg Mileage: <strong style={{ color: '#4F46E5' }}>{gKmpl} km/L</strong></span>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
+                      const vMeta = vehicles.find(v => String(v.id) === String(row.vehicle_id));
+                      const vModel = vMeta?.metadata?.model || vMeta?.metadata?.make || vMeta?.model || 'ASHOK LEYLAND';
+                      const startKms = row.start_odometer || 0;
+                      const dist = parseFloat(row.distance_travelled || 0);
+                      const endKms = row.end_odometer || (startKms > 0 ? (startKms + Math.round(dist)) : Math.round(dist));
 
-                      {rows.map((row, idx) => {
-                        const cat = (row.vehicle_category || 'moving').toLowerCase();
-                        const refill = parseFloat(row.total_refill || 0);
-                        const dispensed = parseFloat(row.total_dispensed || 0);
-                        const theft = parseFloat(row.total_theft || 0);
-                        const consumed = row.consumption != null ? parseFloat(row.consumption) : null;
-                        const kmpl = row.kmpl != null ? parseFloat(row.kmpl) : null;
-                        const lph = row.lph != null ? parseFloat(row.lph) : null;
+                      const isNoData = (!row.distance_travelled || Number(row.distance_travelled) === 0) &&
+                                       (!row.consumption || Number(row.consumption) === 0) &&
+                                       (!row.total_refill || Number(row.total_refill) === 0) &&
+                                       (!row.start_fuel || Number(row.start_fuel) === 0);
 
-                        const vMeta = vehicles.find(v => String(v.id) === String(row.vehicle_id));
-                        const vModel = vMeta?.metadata?.model || vMeta?.metadata?.make || vMeta?.model || 'ASHOK LEYLAND';
-                        const startKms = row.start_odometer || 0;
-                        const dist = parseFloat(row.distance_travelled || 0);
-                        const endKms = row.end_odometer || (startKms > 0 ? (startKms + Math.round(dist)) : Math.round(dist));
+                      const textColor = isNoData ? '#DC2626' : undefined;
+                      const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
 
-                        const isNoData = (!row.distance_travelled || row.distance_travelled === 0) &&
-                                         (!row.consumption || row.consumption === 0) &&
-                                         (!row.total_refill || row.total_refill === 0) &&
-                                         (!row.start_fuel || row.start_fuel === 0);
-
-                        const bg = isNoData ? '#FFF5F5' : (idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC');
-
-                        return (
-                          <tr
-                            key={row.vehicle_id || idx}
-                            style={{
-                              background: bg,
-                              transition: 'background 0.1s ease'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = isNoData ? '#FEE2E2' : '#F0F9FF'}
-                            onMouseLeave={e => e.currentTarget.style.background = bg}
-                          >
-                            {reportType === 'consolidated' ? (
-                              <>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', fontWeight: 600, color: isNoData ? '#DC2626' : '#64748B' }}>
-                                  {idx + 1}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0F172A', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                  {resolveVehicleGroup(row.vehicle_id, row)}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0F172A', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                                  {row.vehicle_name || row.plate || '-'}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#475569', textAlign: 'center', fontSize: '10.5px', whiteSpace: 'nowrap' }}>
-                                  {cat === 'moving' ? 'Moving Vehicle' : cat === 'generator' ? 'Generator DG' : cat === 'machinery' ? 'Machinery Asset' : 'Dispenser Bowser'}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#334155', textAlign: 'center', fontSize: '10.5px', whiteSpace: 'nowrap' }}>
-                                  {vModel}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#334155', textAlign: 'center', fontFamily: 'monospace' }}>
-                                  {vMeta?.metadata?.sensorCount || 1}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0F172A', textAlign: 'right', fontFamily: 'monospace' }}>
-                                  {row.start_fuel != null ? parseFloat(row.start_fuel).toFixed(2) : '0.00'}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0F172A', textAlign: 'right', fontFamily: 'monospace' }}>
-                                  {row.end_fuel != null ? parseFloat(row.end_fuel).toFixed(2) : '0.00'}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#059669', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700 }}>
-                                  {parseFloat(row.total_refill || 0).toFixed(2)}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : (theft > 0 ? '#DC2626' : '#64748B'), textAlign: 'right', fontFamily: 'monospace', fontWeight: theft > 0 ? 700 : 400 }}>
-                                  {parseFloat(row.total_theft || 0).toFixed(2)}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#EA580C', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700 }}>
-                                  {consumed != null ? parseFloat(consumed).toFixed(2) : '0.00'}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#334155', textAlign: 'right', fontFamily: 'monospace' }}>
-                                  {startKms}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#334155', textAlign: 'right', fontFamily: 'monospace' }}>
-                                  {endKms}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0F172A', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700 }}>
-                                  {dist.toFixed(1)}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#4F46E5', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700 }}>
-                                  {kmpl != null && kmpl > 0 ? kmpl.toFixed(2) : '-'}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0F172A', textAlign: 'center', fontFamily: 'monospace' }}>
-                                  {formatHMS(row.running_seconds)}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0284C7', textAlign: 'center', fontFamily: 'monospace', fontWeight: 600 }}>
-                                  {formatHMS(row.engine_on_seconds)}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#64748B', textAlign: 'center', fontFamily: 'monospace' }}>
-                                  00:00:00
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#D97706', textAlign: 'center', fontFamily: 'monospace' }}>
-                                  {formatHMS(row.idle_seconds)}
-                                </td>
-                                <td style={{ padding: '5px 8px', border: '1px solid #CBD5E1', color: isNoData ? '#DC2626' : '#0F766E', textAlign: 'center', fontFamily: 'monospace' }}>
-                                  {lph != null && lph > 0 ? lph.toFixed(2) : '0.00'}
-                                </td>
-                              </>
-                            ) : (
-                              <>
-                                <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', color: '#64748B', fontWeight: 600 }}>
-                                  {idx + 1}
-                                </td>
-
-                                {/* Vehicle Name */}
-                                <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', whiteSpace: 'nowrap' }}>
-                                  <div style={{ fontWeight: 800, color: '#0F172A', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <span>{row.vehicle_name || 'Vehicle'}</span>
-                                    {row.plate && (
-                                      <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, background: '#F1F5F9', padding: '1px 5px', borderRadius: '3px', border: '1px solid #E2E8F0' }}>
-                                        {row.plate}
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-
-                                {/* Category Badge */}
-                                <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                  <span style={{
-                                    padding: '1px 6px',
-                                    borderRadius: '3px',
-                                    fontSize: '10px',
-                                    fontWeight: 700,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.02em',
-                                    background: cat === 'generator' ? '#FEF3C7' : cat === 'machinery' ? '#E0E7FF' : cat === 'dispenser' ? '#CCFBF1' : '#F1F5F9',
-                                    color: cat === 'generator' ? '#B45309' : cat === 'machinery' ? '#4338CA' : cat === 'dispenser' ? '#0F766E' : '#475569',
-                                    border: '1px solid rgba(0,0,0,0.06)'
-                                  }}>
-                                    {cat}
-                                  </span>
-                                </td>
-
-                      {/* REFILL REPORT ROWS */}
-                      {reportType === 'refill' && (
-                        <>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
-                            {row.start_fuel != null ? `${row.start_fuel} L` : '-'}
+                      return (
+                        <tr
+                          key={row.vehicle_id || idx}
+                          style={{
+                            background: bg,
+                            color: textColor || '#0F172A',
+                            transition: 'background 0.1s ease'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = isNoData ? '#FEE2E2' : '#F0F9FF'}
+                          onMouseLeave={e => e.currentTarget.style.background = bg}
+                        >
+                          {/* 1. Organization Name */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#0F172A', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                            {resolveVehicleGroup(row.vehicle_id, row)}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
-                            {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
+                          {/* 2. Vehicle Name */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#0F172A', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            {row.vehicle_name || row.plate || '-'}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace' }}>
-                            {refill > 0 ? (
-                              <span style={{
-                                padding: '2px 8px',
-                                borderRadius: '4px',
-                                background: '#ECFDF5',
-                                border: '1px solid #A7F3D0',
-                                color: '#047857',
-                                fontWeight: 800,
-                                fontSize: '11px'
-                              }}>
-                                +{refill} L
-                              </span>
-                            ) : (
-                              <span style={{ color: '#94A3B8', fontWeight: 600 }}>0 L</span>
-                            )}
+                          {/* 3. Vehicle Mode */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#475569', textAlign: 'center', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                            {cat === 'moving' ? 'Moving Vehicle' : cat === 'generator' ? 'Generator DG' : cat === 'machinery' ? 'Machinery Asset' : 'Dispenser Bowser'}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#0284C7' }}>
-                            {dispensed > 0 ? `${dispensed} L` : '-'}
+                          {/* 4. Vehicle Model */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#334155', textAlign: 'center', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                            {vModel}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#D97706' }}>
-                            {consumed != null ? `${consumed} L` : '-'}
+                          {/* 5. Sensor */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#334155', textAlign: 'center', fontFamily: 'monospace' }}>
+                            {vMeta?.metadata?.sensorCount || 1}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', maxWidth: '200px', fontSize: '10.5px', color: '#334155', lineHeight: 1.2 }}>
-                            {(row.start_lat && row.start_lng) ? (
-                              <AddressText lat={row.start_lat} lng={row.start_lng} />
-                            ) : (
-                              <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Location unavailable</span>
-                            )}
+                          {/* 6. Start Fuel */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#0F172A', textAlign: 'right', fontFamily: 'monospace' }}>
+                            {row.start_fuel != null ? parseFloat(row.start_fuel).toFixed(2) : '0.00'}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
-                            {refill > 0 ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#059669', fontWeight: 700, fontSize: '10.5px' }}>
-                                <CheckCircle2 size={12} /> Refilled
-                              </span>
-                            ) : (
-                              <span style={{ color: '#94A3B8', fontSize: '10.5px' }}>Normal</span>
-                            )}
+                          {/* 7. End Fuel */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#0F172A', textAlign: 'right', fontFamily: 'monospace' }}>
+                            {row.end_fuel != null ? parseFloat(row.end_fuel).toFixed(2) : '0.00'}
                           </td>
-                        </>
-                      )}
-
-                      {/* THEFT REPORT ROWS */}
-                      {reportType === 'theft' && (
-                        <>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
-                            {row.start_fuel != null ? `${row.start_fuel} L` : '-'}
+                          {/* 8. Fuel Filling */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#059669', textAlign: 'right', fontFamily: 'monospace', fontWeight: refill > 0 ? 700 : 400 }}>
+                            {refill.toFixed(2)}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
-                            {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
+                          {/* 9. Fuel Theft */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || (theft > 0 ? '#DC2626' : '#64748B'), textAlign: 'right', fontFamily: 'monospace', fontWeight: theft > 0 ? 700 : 400 }}>
+                            {theft.toFixed(2)}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace' }}>
-                            {theft > 0 ? (
-                              <span style={{
-                                padding: '2px 8px',
-                                borderRadius: '4px',
-                                background: '#FEF2F2',
-                                border: '1px solid #FECACA',
-                                color: '#DC2626',
-                                fontWeight: 800,
-                                fontSize: '11px'
-                              }}>
-                                -{theft} L
-                              </span>
-                            ) : (
-                              <span style={{ color: '#059669', fontWeight: 600, fontSize: '11px' }}>0 L</span>
-                            )}
+                          {/* 10. Fuel Consumption */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#EA580C', textAlign: 'right', fontFamily: 'monospace', fontWeight: consumed > 0 ? 700 : 400 }}>
+                            {consumed != null ? parseFloat(consumed).toFixed(2) : '0.00'}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#059669' }}>
-                            {refill > 0 ? `+${refill} L` : '-'}
+                          {/* 11. Start Kms */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#334155', textAlign: 'right', fontFamily: 'monospace' }}>
+                            {startKms}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#D97706' }}>
-                            {consumed != null ? `${consumed} L` : '-'}
+                          {/* 12. End Kms */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#334155', textAlign: 'right', fontFamily: 'monospace' }}>
+                            {endKms}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', maxWidth: '200px', fontSize: '10.5px', color: '#334155', lineHeight: 1.2 }}>
-                            {(row.start_lat && row.start_lng) ? (
-                              <AddressText lat={row.start_lat} lng={row.start_lng} />
-                            ) : (
-                              <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Location unavailable</span>
-                            )}
+                          {/* 13. Distance Travelled */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#0F172A', textAlign: 'right', fontFamily: 'monospace', fontWeight: dist > 0 ? 700 : 400 }}>
+                            {dist > 0 ? (dist % 1 === 0 ? dist.toFixed(0) : dist.toFixed(1)) : '0'}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
-                            {theft >= 20 ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#DC2626', fontWeight: 800, fontSize: '10.5px' }}>
-                                <AlertTriangle size={12} /> Critical Theft
-                              </span>
-                            ) : theft > 0 ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#B45309', fontWeight: 700, fontSize: '10.5px' }}>
-                                <AlertTriangle size={12} /> Drop Detected
-                              </span>
-                            ) : (
-                              <span style={{ color: '#059669', fontWeight: 700, fontSize: '10.5px' }}>Secure</span>
-                            )}
+                          {/* 14. Kmpl */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#4F46E5', textAlign: 'center', fontFamily: 'monospace', fontWeight: kmpl > 0 ? 700 : 400 }}>
+                            {kmpl != null && kmpl > 0 ? kmpl.toFixed(2) : '-'}
                           </td>
-                        </>
-                      )}
-
-
-
-                      {/* KMPL MILEAGE ROWS */}
-                      {reportType === 'kmpl' && (
-                        <>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#0F172A' }}>
-                            {row.distance_travelled || 0} km
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
+                          {/* 15. Running Hrs */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#0F172A', textAlign: 'center', fontFamily: 'monospace' }}>
                             {formatHMS(row.running_seconds)}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#D97706' }}>
-                            {consumed != null ? `${consumed} L` : '-'}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace' }}>
-                            {kmpl != null && kmpl > 0 ? (
-                              <span style={{
-                                padding: '2px 8px',
-                                borderRadius: '4px',
-                                background: kmpl >= 3.5 ? '#ECFDF5' : kmpl >= 2.0 ? '#FFFBEB' : '#FEF2F2',
-                                border: `1px solid ${kmpl >= 3.5 ? '#A7F3D0' : kmpl >= 2.0 ? '#FDE68A' : '#FECACA'}`,
-                                color: kmpl >= 3.5 ? '#047857' : kmpl >= 2.0 ? '#B45309' : '#DC2626',
-                                fontWeight: 800,
-                                fontSize: '11px'
-                              }}>
-                                {kmpl.toFixed(2)} km/L
-                              </span>
-                            ) : (
-                              <span style={{ color: '#94A3B8' }}>—</span>
-                            )}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
-                            {row.avg_speed || 0} km/h
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
-                            {row.max_speed || 0} km/h
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
-                            {kmpl != null && kmpl >= 3.5 ? (
-                              <span style={{ color: '#059669', fontWeight: 700, fontSize: '10.5px' }}>Optimal</span>
-                            ) : kmpl != null && kmpl >= 2.0 ? (
-                              <span style={{ color: '#D97706', fontWeight: 700, fontSize: '10.5px' }}>Moderate</span>
-                            ) : kmpl != null && kmpl > 0 ? (
-                              <span style={{ color: '#DC2626', fontWeight: 700, fontSize: '10.5px' }}>Low Mileage</span>
-                            ) : (
-                              <span style={{ color: '#94A3B8', fontSize: '10.5px' }}>—</span>
-                            )}
-                          </td>
-                        </>
-                      )}
-
-                      {/* LPH BURN RATE ROWS */}
-                      {reportType === 'lph' && (
-                        <>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#0284C7', fontWeight: 700 }}>
+                          {/* 16. Engine ON Hours */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#0284C7', textAlign: 'center', fontFamily: 'monospace' }}>
                             {formatHMS(row.engine_on_seconds)}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
-                            {formatHMS(row.running_seconds)}
+                          {/* 17. Secondary Engine Hrs */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#64748B', textAlign: 'center', fontFamily: 'monospace' }}>
+                            00:00:00
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#D97706', fontWeight: 600 }}>
+                          {/* 18. Engine Idle Hrs */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#D97706', textAlign: 'center', fontFamily: 'monospace' }}>
                             {formatHMS(row.idle_seconds)}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#EA580C' }}>
-                            {consumed != null ? `${consumed} L` : '-'}
+                          {/* 19. Ltr Per Hr */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#0F766E', textAlign: 'center', fontFamily: 'monospace' }}>
+                            {lph != null && lph > 0 ? (lph % 1 === 0 ? lph.toFixed(0) : lph.toFixed(2)) : '0'}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace' }}>
-                            {lph != null && lph > 0 ? (
-                              <span style={{
-                                padding: '2px 8px',
-                                borderRadius: '4px',
-                                background: lph <= 2.5 ? '#F0FDFA' : lph <= 5.0 ? '#FFFBEB' : '#FAF5FF',
-                                border: `1px solid ${lph <= 2.5 ? '#99F6E4' : lph <= 5.0 ? '#FDE68A' : '#E9D5FF'}`,
-                                color: lph <= 2.5 ? '#0F766E' : lph <= 5.0 ? '#B45309' : '#7E22CE',
-                                fontWeight: 800,
-                                fontSize: '11px'
-                              }}>
-                                {lph.toFixed(2)} L/h
-                              </span>
+                          {/* 20. Start Loc */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                            {row.start_lat && row.start_lng ? (
+                              <a
+                                href={`https://www.google.com/maps?q=${row.start_lat},${row.start_lng}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ color: '#0284C7', textDecoration: 'underline', fontWeight: 600 }}
+                              >
+                                Link
+                              </a>
                             ) : (
-                              <span style={{ color: '#94A3B8' }}>—</span>
+                              <span style={{ color: textColor || '#94A3B8' }}>Link</span>
                             )}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
-                            {lph != null && lph <= 2.5 ? (
-                              <span style={{ color: '#0F766E', fontWeight: 700, fontSize: '10.5px' }}>Efficient</span>
-                            ) : lph != null && lph <= 5.0 ? (
-                              <span style={{ color: '#D97706', fontWeight: 700, fontSize: '10.5px' }}>Standard</span>
-                            ) : lph != null && lph > 0 ? (
-                              <span style={{ color: '#7E22CE', fontWeight: 700, fontSize: '10.5px' }}>High Burn</span>
+                          {/* 21. End Loc */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                            {row.end_lat && row.end_lng ? (
+                              <a
+                                href={`https://www.google.com/maps?q=${row.end_lat},${row.end_lng}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ color: '#0284C7', textDecoration: 'underline', fontWeight: 600 }}
+                              >
+                                Link
+                              </a>
                             ) : (
-                              <span style={{ color: '#94A3B8', fontSize: '10.5px' }}>—</span>
+                              <span style={{ color: textColor || '#94A3B8' }}>Link</span>
                             )}
                           </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
-                            {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
+                          {/* 22. Driver Name */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#334155', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {vMeta?.driver_name || row.driver_name || '-'}
                           </td>
-                        </>
-                      )}
+                          {/* 23. Driver Mobile Number */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#334155', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {vMeta?.driver_phone || row.driver_phone || '-'}
+                          </td>
+                          {/* 24. Remarks */}
+                          <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#475569', fontSize: '10.5px', whiteSpace: 'nowrap' }}>
+                            {vMeta?.metadata?.sensor_id ? `SENSOR: ${vMeta.metadata.sensor_id}` : (row.remarks || '-')}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 5, background: '#F8FAFC' }}>
+                    <tr style={{ background: '#F1F5F9', borderTop: '2px solid #CBD5E1', fontWeight: 800 }}>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1' }}></td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 800 }}>Total</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1' }}></td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1' }}></td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1' }}></td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace' }}>-</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace' }}>-</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#059669', fontWeight: 800 }}>
+                        {metrics.totalRefill.toFixed(2)}
+                      </td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: metrics.totalTheft > 0 ? '#DC2626' : '#64748B', fontWeight: 800 }}>
+                        {metrics.totalTheft.toFixed(2)}
+                      </td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#EA580C', fontWeight: 800 }}>
+                        {metrics.totalConsumed.toFixed(2)}
+                      </td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace' }}>-</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace' }}>-</td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#0F172A', fontWeight: 800 }}>
+                        {metrics.totalDistance}
+                      </td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#4F46E5', fontWeight: 800 }}>
+                        {metrics.fleetAvgKmpl}
+                      </td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', fontWeight: 800 }}>
+                        {formatHMS(metrics.totalRunningSec)}
+                      </td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#0284C7', fontWeight: 800 }}>
+                        {formatHMS(metrics.totalEngineSec)}
+                      </td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', fontWeight: 800 }}>
+                        00:00:00
+                      </td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#D97706', fontWeight: 800 }}>
+                        {formatHMS(metrics.totalIdleSec)}
+                      </td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', fontWeight: 800 }}>
+                        {metrics.fleetAvgLph != null && parseFloat(metrics.fleetAvgLph) > 0 ? metrics.fleetAvgLph : '0'}
+                      </td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1' }}></td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1' }}></td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1' }}></td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1' }}></td>
+                      <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1' }}></td>
+                    </tr>
+                  </tfoot>
+                </>
+              ) : (
+                <tbody>
+                  {groupedRows.map(([gName, rows], gIdx) => {
+                    const gConsumed = rows.reduce((acc, r) => acc + (parseFloat(r.consumption) || 0), 0);
+                    const gRefill = rows.reduce((acc, r) => acc + (parseFloat(r.total_refill) || 0), 0);
+                    const gTheft = rows.reduce((acc, r) => acc + (parseFloat(r.total_theft) || 0), 0);
+                    const gDist = rows.reduce((acc, r) => acc + (parseFloat(r.distance_travelled) || 0), 0);
+                    const gKmpl = gConsumed > 0 ? (gDist / gConsumed).toFixed(2) : '-';
 
-                      {/* CONSUMPTION REPORT ROWS */}
-                      {reportType === 'consumption' && (
-                        <>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
-                            {row.start_fuel != null ? `${row.start_fuel} L` : '-'}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
-                            {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#059669' }}>
-                            {refill > 0 ? `+${refill} L` : '0 L'}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: theft > 0 ? '#DC2626' : '#94A3B8' }}>
-                            {theft > 0 ? `-${theft} L` : '0 L'}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#C2410C' }}>
-                            {consumed != null ? `${consumed} L` : '-'}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#0F172A' }}>
-                            {row.distance_travelled || 0} km
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
-                            {formatHMS(row.engine_on_seconds)}
-                          </td>
-                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
-                            {theft > 0 ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#DC2626', fontWeight: 700, fontSize: '10.5px' }}>
-                                <AlertTriangle size={12} /> Fuel Theft
+                    return (
+                      <React.Fragment key={gName || gIdx}>
+                        {/* Group Header Strip with Group Totals */}
+                        <tr style={{ background: '#E0F2FE', borderTop: '2px solid #0284C7', borderBottom: '1px solid #BAE6FD' }}>
+                          <td colSpan={22} style={{ padding: '6px 10px', fontWeight: 800, fontSize: '11.5px', color: '#0369A1', textAlign: 'left' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0284C7', display: 'inline-block' }} />
+                                Group: {gName} ({rows.length} {rows.length === 1 ? 'Vehicle' : 'Vehicles'})
                               </span>
-                            ) : (
-                              <span style={{ color: '#059669', fontWeight: 700, fontSize: '10.5px' }}>Normal</span>
-                            )}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11px', fontWeight: 700, color: '#0F172A' }}>
+                                <span>Distance: <strong style={{ color: '#0284C7' }}>{Math.round(gDist)} km</strong></span>
+                                <span>Refill: <strong style={{ color: '#059669' }}>+{Math.round(gRefill)} L</strong></span>
+                                <span>Theft: <strong style={{ color: gTheft > 0 ? '#DC2626' : '#64748B' }}>{Math.round(gTheft)} L</strong></span>
+                                <span>Consumed: <strong style={{ color: '#EA580C' }}>{Math.round(gConsumed)} L</strong></span>
+                                <span>Avg Mileage: <strong style={{ color: '#4F46E5' }}>{gKmpl} km/L</strong></span>
+                              </div>
+                            </div>
                           </td>
-                        </>
-                      )}
-                    </>
-                  )}
-                </tr>
-              );
-            })}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
+                        </tr>
+
+                        {rows.map((row, idx) => {
+                          const cat = (row.vehicle_category || 'moving').toLowerCase();
+                          const refill = parseFloat(row.total_refill || 0);
+                          const dispensed = parseFloat(row.total_dispensed || 0);
+                          const theft = parseFloat(row.total_theft || 0);
+                          const consumed = row.consumption != null ? parseFloat(row.consumption) : null;
+                          const kmpl = row.kmpl != null ? parseFloat(row.kmpl) : null;
+                          const lph = row.lph != null ? parseFloat(row.lph) : null;
+
+                          const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
+
+                          return (
+                            <tr
+                              key={row.vehicle_id || idx}
+                              style={{
+                                background: bg,
+                                transition: 'background 0.1s ease'
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#F0F9FF'}
+                              onMouseLeave={e => e.currentTarget.style.background = bg}
+                            >
+                              <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', color: '#64748B', fontWeight: 600 }}>
+                                {idx + 1}
+                              </td>
+
+                              {/* Vehicle Name */}
+                              <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', whiteSpace: 'nowrap' }}>
+                                <div style={{ fontWeight: 800, color: '#0F172A', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span>{row.vehicle_name || 'Vehicle'}</span>
+                                  {row.plate && (
+                                    <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, background: '#F1F5F9', padding: '1px 5px', borderRadius: '3px', border: '1px solid #E2E8F0' }}>
+                                      {row.plate}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Category Badge */}
+                              <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                <span style={{
+                                  padding: '1px 6px',
+                                  borderRadius: '3px',
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.02em',
+                                  background: cat === 'generator' ? '#FEF3C7' : cat === 'machinery' ? '#E0E7FF' : cat === 'dispenser' ? '#CCFBF1' : '#F1F5F9',
+                                  color: cat === 'generator' ? '#B45309' : cat === 'machinery' ? '#4338CA' : cat === 'dispenser' ? '#0F766E' : '#475569',
+                                  border: '1px solid rgba(0,0,0,0.06)'
+                                }}>
+                                  {cat}
+                                </span>
+                              </td>
+
+                              {/* REFILL REPORT ROWS */}
+                              {reportType === 'refill' && (
+                                <>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
+                                    {row.start_fuel != null ? `${row.start_fuel} L` : '-'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
+                                    {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace' }}>
+                                    {refill > 0 ? (
+                                      <span style={{
+                                        padding: '2px 8px',
+                                        borderRadius: '4px',
+                                        background: '#ECFDF5',
+                                        border: '1px solid #A7F3D0',
+                                        color: '#047857',
+                                        fontWeight: 800,
+                                        fontSize: '11px'
+                                      }}>
+                                        +{refill} L
+                                      </span>
+                                    ) : (
+                                      <span style={{ color: '#94A3B8', fontWeight: 600 }}>0 L</span>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#0284C7' }}>
+                                    {dispensed > 0 ? `${dispensed} L` : '-'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#D97706' }}>
+                                    {consumed != null ? `${consumed} L` : '-'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', maxWidth: '200px', fontSize: '10.5px', color: '#334155', lineHeight: 1.2 }}>
+                                    {(row.start_lat && row.start_lng) ? (
+                                      <AddressText lat={row.start_lat} lng={row.start_lng} />
+                                    ) : (
+                                      <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Location unavailable</span>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
+                                    {refill > 0 ? (
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#059669', fontWeight: 700, fontSize: '10.5px' }}>
+                                        <CheckCircle2 size={12} /> Refilled
+                                      </span>
+                                    ) : (
+                                      <span style={{ color: '#94A3B8', fontSize: '10.5px' }}>Normal</span>
+                                    )}
+                                  </td>
+                                </>
+                              )}
+
+                              {/* THEFT REPORT ROWS */}
+                              {reportType === 'theft' && (
+                                <>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
+                                    {row.start_fuel != null ? `${row.start_fuel} L` : '-'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
+                                    {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace' }}>
+                                    {theft > 0 ? (
+                                      <span style={{
+                                        padding: '2px 8px',
+                                        borderRadius: '4px',
+                                        background: '#FEF2F2',
+                                        border: '1px solid #FECACA',
+                                        color: '#DC2626',
+                                        fontWeight: 800,
+                                        fontSize: '11px'
+                                      }}>
+                                        -{theft} L
+                                      </span>
+                                    ) : (
+                                      <span style={{ color: '#059669', fontWeight: 600, fontSize: '11px' }}>0 L</span>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#059669' }}>
+                                    {refill > 0 ? `+${refill} L` : '-'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#D97706' }}>
+                                    {consumed != null ? `${consumed} L` : '-'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', maxWidth: '200px', fontSize: '10.5px', color: '#334155', lineHeight: 1.2 }}>
+                                    {(row.start_lat && row.start_lng) ? (
+                                      <AddressText lat={row.start_lat} lng={row.start_lng} />
+                                    ) : (
+                                      <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Location unavailable</span>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
+                                    {theft >= 20 ? (
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#DC2626', fontWeight: 800, fontSize: '10.5px' }}>
+                                        <AlertTriangle size={12} /> Critical Theft
+                                      </span>
+                                    ) : theft > 0 ? (
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#B45309', fontWeight: 700, fontSize: '10.5px' }}>
+                                        <AlertTriangle size={12} /> Drop Detected
+                                      </span>
+                                    ) : (
+                                      <span style={{ color: '#059669', fontWeight: 700, fontSize: '10.5px' }}>Secure</span>
+                                    )}
+                                  </td>
+                                </>
+                              )}
+
+                              {/* KMPL MILEAGE ROWS */}
+                              {reportType === 'kmpl' && (
+                                <>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#0F172A' }}>
+                                    {row.distance_travelled || 0} km
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
+                                    {formatHMS(row.running_seconds)}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#D97706' }}>
+                                    {consumed != null ? `${consumed} L` : '-'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace' }}>
+                                    {kmpl != null && kmpl > 0 ? (
+                                      <span style={{
+                                        padding: '2px 8px',
+                                        borderRadius: '4px',
+                                        background: kmpl >= 3.5 ? '#ECFDF5' : kmpl >= 2.0 ? '#FFFBEB' : '#FEF2F2',
+                                        border: `1px solid ${kmpl >= 3.5 ? '#A7F3D0' : kmpl >= 2.0 ? '#FDE68A' : '#FECACA'}`,
+                                        color: kmpl >= 3.5 ? '#047857' : kmpl >= 2.0 ? '#B45309' : '#DC2626',
+                                        fontWeight: 800,
+                                        fontSize: '11px'
+                                      }}>
+                                        {kmpl.toFixed(2)} km/L
+                                      </span>
+                                    ) : (
+                                      <span style={{ color: '#94A3B8' }}>—</span>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
+                                    {row.avg_speed || 0} km/h
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
+                                    {row.max_speed || 0} km/h
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
+                                    {kmpl != null && kmpl >= 3.5 ? (
+                                      <span style={{ color: '#059669', fontWeight: 700, fontSize: '10.5px' }}>Optimal</span>
+                                    ) : kmpl != null && kmpl >= 2.0 ? (
+                                      <span style={{ color: '#D97706', fontWeight: 700, fontSize: '10.5px' }}>Moderate</span>
+                                    ) : kmpl != null && kmpl > 0 ? (
+                                      <span style={{ color: '#DC2626', fontWeight: 700, fontSize: '10.5px' }}>Low Mileage</span>
+                                    ) : (
+                                      <span style={{ color: '#94A3B8', fontSize: '10.5px' }}>—</span>
+                                    )}
+                                  </td>
+                                </>
+                              )}
+
+                              {/* LPH BURN RATE ROWS */}
+                              {reportType === 'lph' && (
+                                <>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#0284C7', fontWeight: 700 }}>
+                                    {formatHMS(row.engine_on_seconds)}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
+                                    {formatHMS(row.running_seconds)}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#D97706', fontWeight: 600 }}>
+                                    {formatHMS(row.idle_seconds)}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#EA580C' }}>
+                                    {consumed != null ? `${consumed} L` : '-'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace' }}>
+                                    {lph != null && lph > 0 ? (
+                                      <span style={{
+                                        padding: '2px 8px',
+                                        borderRadius: '4px',
+                                        background: lph <= 2.5 ? '#F0FDFA' : lph <= 5.0 ? '#FFFBEB' : '#FAF5FF',
+                                        border: `1px solid ${lph <= 2.5 ? '#99F6E4' : lph <= 5.0 ? '#FDE68A' : '#E9D5FF'}`,
+                                        color: lph <= 2.5 ? '#0F766E' : lph <= 5.0 ? '#B45309' : '#7E22CE',
+                                        fontWeight: 800,
+                                        fontSize: '11px'
+                                      }}>
+                                        {lph.toFixed(2)} L/h
+                                      </span>
+                                    ) : (
+                                      <span style={{ color: '#94A3B8' }}>—</span>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
+                                    {lph != null && lph <= 2.5 ? (
+                                      <span style={{ color: '#0F766E', fontWeight: 700, fontSize: '10.5px' }}>Efficient</span>
+                                    ) : lph != null && lph <= 5.0 ? (
+                                      <span style={{ color: '#D97706', fontWeight: 700, fontSize: '10.5px' }}>Standard</span>
+                                    ) : lph != null && lph > 0 ? (
+                                      <span style={{ color: '#7E22CE', fontWeight: 700, fontSize: '10.5px' }}>High Burn</span>
+                                    ) : (
+                                      <span style={{ color: '#94A3B8', fontSize: '10.5px' }}>—</span>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
+                                    {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
+                                  </td>
+                                </>
+                              )}
+
+                              {/* CONSUMPTION REPORT ROWS */}
+                              {reportType === 'consumption' && (
+                                <>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
+                                    {row.start_fuel != null ? `${row.start_fuel} L` : '-'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
+                                    {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#059669' }}>
+                                    {refill > 0 ? `+${refill} L` : '0 L'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: theft > 0 ? '#DC2626' : '#94A3B8' }}>
+                                    {theft > 0 ? `-${theft} L` : '0 L'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#C2410C' }}>
+                                    {consumed != null ? `${consumed} L` : '-'}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#0F172A' }}>
+                                    {row.distance_travelled || 0} km
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
+                                    {formatHMS(row.engine_on_seconds)}
+                                  </td>
+                                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
+                                    {theft > 0 ? (
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#DC2626', fontWeight: 700, fontSize: '10.5px' }}>
+                                        <AlertTriangle size={12} /> Fuel Theft
+                                      </span>
+                                    ) : (
+                                      <span style={{ color: '#059669', fontWeight: 700, fontSize: '10.5px' }}>Normal</span>
+                                    )}
+                                  </td>
+                                </>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              )}
             </table>
           </div>
         )}
