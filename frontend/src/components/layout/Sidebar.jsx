@@ -159,17 +159,20 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
       p.startsWith('/admin/reports/geofence');
   };
 
+  const isFuelReportPath = (p) => {
+    return p.startsWith('/admin/reports/fuel-') ||
+      p === '/admin/reports/kmpl-mileage' ||
+      p === '/admin/reports/lph-burn-rate';
+  };
+
   const [openSubMenus, setOpenSubMenus] = useState(() => ({
     'Dashboard': !isSuperAdminOrDealer && (location.pathname === '/dashboard' || location.pathname === '/admin/reports/dashboard'),
     'Fuel Analytics': location.pathname.startsWith('/fuel-') || location.pathname.startsWith('/admin/fuel'),
-    'Reports': location.pathname.startsWith('/admin/reports') && location.pathname !== '/admin/reports/dashboard' && !isTripReportPath(location.pathname),
+    'Reports': location.pathname.startsWith('/admin/reports') && location.pathname !== '/admin/reports/dashboard' && !isTripReportPath(location.pathname) && !isFuelReportPath(location.pathname),
+    'Fuel Reports': isFuelReportPath(location.pathname),
   }));
 
-  const [openNestedSubMenus, setOpenNestedSubMenus] = useState(() => ({
-    'Fuel Reports': location.pathname.startsWith('/admin/reports/fuel-') ||
-      location.pathname === '/admin/reports/kmpl-mileage' ||
-      location.pathname === '/admin/reports/lph-burn-rate'
-  }));
+  const [openNestedSubMenus, setOpenNestedSubMenus] = useState(() => ({}));
 
   const [tripsExpanded, setTripsExpanded] = useState(() => {
     return location.pathname === '/trips' || isTripReportPath(location.pathname);
@@ -185,13 +188,10 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
     if (location.pathname.startsWith('/fuel-') || location.pathname.startsWith('/admin/fuel')) {
       setOpenSubMenus(prev => ({ ...prev, 'Fuel Analytics': true }));
     }
-    if (location.pathname.startsWith('/admin/reports') && location.pathname !== '/admin/reports/dashboard' && !isTripReportPath(location.pathname)) {
+    if (isFuelReportPath(location.pathname)) {
+      setOpenSubMenus(prev => ({ ...prev, 'Fuel Reports': true }));
+    } else if (location.pathname.startsWith('/admin/reports') && location.pathname !== '/admin/reports/dashboard' && !isTripReportPath(location.pathname)) {
       setOpenSubMenus(prev => ({ ...prev, 'Reports': true }));
-      if (location.pathname.startsWith('/admin/reports/fuel-') ||
-        location.pathname === '/admin/reports/kmpl-mileage' ||
-        location.pathname === '/admin/reports/lph-burn-rate') {
-        setOpenNestedSubMenus(prev => ({ ...prev, 'Fuel Reports': true }));
-      }
     }
     if (location.pathname === '/trips' || isTripReportPath(location.pathname)) {
       setTripsExpanded(true);
@@ -321,7 +321,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
           path: '/admin/reports/distance',
           icon: FileText,
           color: '#7C3AED',
-          roles: ['customer'],
+          roles: ['customer', 'superadmin', 'dealer'],
           subItems: [
             { name: 'Daily Distance', path: '/admin/reports/distance' },
             { name: 'Engine ON', path: '/admin/reports/ignition' },
@@ -329,22 +329,24 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
             { name: 'Stoppage', path: '/admin/reports/stoppage' },
             { name: 'Individual', path: '/admin/reports/individual' },
             { name: 'Vehicle Consolidated', path: '/admin/reports/consolidated' },
-            { name: 'Fuel Consolidated', path: '/admin/reports/fuel-consolidated' },
-            { name: 'Non-Sensor Fuel Report', path: '/fuel-report' },
-            ...(hasFuelFeature ? [{
-              name: 'Fuel Reports',
-              path: '/admin/reports/fuel-consumption',
-              subItems: [
-                { name: 'Fuel Refill Report', path: '/admin/reports/fuel-refill' },
-                { name: 'Fuel Consumption', path: '/admin/reports/fuel-consumption' },
-                { name: 'Fuel Theft Report', path: '/admin/reports/fuel-theft' },
-                { name: 'Fuel Consolidated', path: '/admin/reports/fuel-consolidated' },
-                { name: 'KMPL Mileage Report', path: '/admin/reports/kmpl-mileage' },
-                { name: 'LPH Engine Burn Rate', path: '/admin/reports/lph-burn-rate' }
-              ]
-            }] : [])
+            { name: 'Non-Sensor Fuel Report', path: '/fuel-report' }
           ],
         },
+        ...(hasFuelFeature ? [{
+          name: 'Fuel Reports',
+          path: '/admin/reports/fuel-consumption',
+          icon: Fuel,
+          color: '#F97316',
+          roles: ['customer', 'superadmin', 'dealer'],
+          subItems: [
+            { name: 'Fuel Refill Report', path: '/admin/reports/fuel-refill' },
+            { name: 'Fuel Consumption', path: '/admin/reports/fuel-consumption' },
+            { name: 'Fuel Theft Report', path: '/admin/reports/fuel-theft' },
+            { name: 'Fuel Consolidated', path: '/admin/reports/fuel-consolidated' },
+            { name: 'KMPL Mileage Report', path: '/admin/reports/kmpl-mileage' },
+            { name: 'LPH Engine Burn Rate', path: '/admin/reports/lph-burn-rate' }
+          ]
+        }] : []),
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, color: '#0D9488', roles: ['customer'] },
         { name: 'Alerts', path: '/alerts', icon: Bell, color: '#EF4444', roles: ['customer'] },
       ],

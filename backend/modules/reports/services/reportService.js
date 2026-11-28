@@ -312,11 +312,6 @@ class ReportService {
     const data = await reportRepository.getConsolidatedActivity(orgId, role, userId, startDate, endDate, vehicleId, groupId);
     if (!data || data.length === 0) return [];
 
-    // Fast-path: If aggregated from summary tables, return immediately (<10ms) without 2 heavy raw scans
-    if (data[0]?._from_summary) {
-      return data;
-    }
-
     const vehicleIds = data.map(d => d.vehicle_id);
     const [intervalsMap, pointsMap] = await Promise.all([
       reportRepository.getVehicleIntervals(vehicleIds, startDate, endDate),

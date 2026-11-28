@@ -225,6 +225,15 @@ const FuelReportsPage = ({ type: propType }) => {
     handleFetchReport(updated);
   };
 
+  const resolveVehicleGroup = (vId) => {
+    if (selectedGroup && selectedGroup !== 'All') return selectedGroup;
+    const vMeta = vehicles.find(v => String(v.id) === String(vId));
+    if (vMeta?.group_name) return vMeta.group_name;
+    if (vMeta?.group?.name) return vMeta.group.name;
+    if (Array.isArray(vMeta?.groups) && vMeta.groups.length > 0 && vMeta.groups[0]?.name) return vMeta.groups[0].name;
+    return 'General Fleet';
+  };
+
   // Filter data by category & search query
   const filteredData = useMemo(() => {
     return data.filter(item => {
@@ -240,33 +249,23 @@ const FuelReportsPage = ({ type: propType }) => {
       if (categoryFilter === 'GENERATOR') matchesCat = cat === 'generator';
       if (categoryFilter === 'DISPENSER') matchesCat = cat === 'dispenser';
 
-      let matchesGroup = true;
-      if (selectedGroup !== 'All') {
-        const vMeta = vehicles.find(v => String(v.id) === String(item.vehicle_id));
-        const gName = (vMeta?.group_name || vMeta?.group?.name || item.group_name || '').trim().toLowerCase();
-        const selG = selectedGroup.trim().toLowerCase();
-        const matchArr = Array.isArray(vMeta?.groups) && vMeta.groups.some(g => (g.name || '').trim().toLowerCase() === selG);
-        matchesGroup = gName === selG || matchArr;
-      }
-
-      return matchesSearch && matchesCat && matchesGroup;
+      return matchesSearch && matchesCat;
     });
-  }, [data, searchQuery, categoryFilter, selectedGroup, vehicles]);
+  }, [data, searchQuery, categoryFilter]);
 
 
   // Group rows by assigned group for group-wise sectioning
   const groupedRows = useMemo(() => {
     const map = new Map();
     filteredData.forEach(row => {
-      const vMeta = vehicles.find(v => String(v.id) === String(row.vehicle_id));
-      const gName = (vMeta?.group_name || vMeta?.group?.name || row.group_name || 'General Fleet').trim();
+      const gName = resolveVehicleGroup(row.vehicle_id);
       if (!map.has(gName)) {
         map.set(gName, []);
       }
       map.get(gName).push(row);
     });
     return Array.from(map.entries());
-  }, [filteredData, vehicles]);
+  }, [filteredData, vehicles, selectedGroup]);
 
   // Aggregate Metrics based on report type
   const metrics = useMemo(() => {
@@ -453,7 +452,6 @@ const FuelReportsPage = ({ type: propType }) => {
         return {
           'S.No': idx + 1,
           'Vehicle Name': vName,
-          'Group Name': resolveVehicleGroup(row.vehicle_id),
           'Group Name': resolveVehicleGroup(row.vehicle_id),
           'Reg No': row.plate || '-',
           'Category': cat,
