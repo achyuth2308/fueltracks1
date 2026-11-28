@@ -140,22 +140,60 @@ class ReportService {
     const vehicleIds = await this.resolveVehicles(filters);
     const vehicleDetails = await this.getVehicleDetails(vehicleIds);
 
+    // Fetch latest state for all vehicles for odometer fallback
+    let latestStateMap = {};
+    if (vehicleIds.length > 0) {
+      try {
+        const placeholders = vehicleIds.map((_, i) => `$${i + 1}`).join(',');
+        const vlsRes = await db.query(
+          `SELECT vehicle_id, odometer, today_distance, today_start_odometer
+           FROM vehicle_latest_state WHERE vehicle_id IN (${placeholders})`,
+          vehicleIds
+        );
+        vlsRes.rows.forEach(r => { latestStateMap[r.vehicle_id] = r; });
+      } catch (e) {
+        // non-fatal, skip fallback
+      }
+    }
+
     let allData = [];
     for (const vId of vehicleIds) {
       const data = await reportRepository.getDailyDistance(vId, startDate, endDate);
       const vInfo = vehicleDetails[vId] || {};
       const baseline = parseFloat(vInfo.baseline) || 0;
+      const vls = latestStateMap[vId] || {};
 
-      // We can also fetch trip count for that day
-      // But to keep it efficient, we just return the distance for now, or we can do a sub-fetch.
       data.forEach(d => {
+        const dist = parseFloat(d.distance_travelled) || 0;
+        let startOdo = parseFloat(d.start_odometer) || 0;
+        let endOdo   = parseFloat(d.end_odometer)   || 0;
+
         if (baseline > 0) {
+          // Admin-configured baseline (odometerReading metadata)
           const snapshot = parseFloat(vInfo.snapshot) || 0;
-          d.start_odometer = Math.round((baseline + Math.max(0, (d.start_odometer || 0) - snapshot)) * 100) / 100;
-          d.end_odometer = Math.round((baseline + Math.max(0, (d.end_odometer || 0) - snapshot)) * 100) / 100;
+          startOdo = Math.round((baseline + Math.max(0, startOdo - snapshot)) * 100) / 100;
+          endOdo   = Math.round((baseline + Math.max(0, endOdo   - snapshot)) * 100) / 100;
         }
+
+        // If odometer still 0 (device doesn't report CAN odometer), derive from
+        // vehicle_latest_state.odometer + distance_travelled
+        if (startOdo === 0 && endOdo === 0) {
+          const vlsOdo = parseFloat(vls.odometer) || 0;
+          if (vlsOdo > 0) {
+            // Best estimate: end = current odo, start = current odo - today's distance
+            endOdo   = Math.round(vlsOdo * 100) / 100;
+            startOdo = Math.round(Math.max(0, vlsOdo - dist) * 100) / 100;
+          } else if (dist > 0) {
+            // No baseline at all – at least show relative: start=0, end=distance
+            startOdo = 0;
+            endOdo   = Math.round(dist * 100) / 100;
+          }
+        }
+
         allData.push({
           ...d,
+          start_odometer: startOdo,
+          end_odometer:   endOdo,
           vehicle_id: vId,
           vehicle_name: vInfo.name,
           plate: vInfo.plate,
@@ -163,7 +201,7 @@ class ReportService {
         });
       });
     }
-    return allData.sort((a, b) => new Date(b.date) - new Date(a.date));
+    return allData.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   }
 
   async getVehicleActivityReport(filters, startDate, endDate) {

@@ -324,20 +324,30 @@ class ReportRepository {
    * Uses Haversine per-point with LAG() partitioned by IST date.
    */
   async getDailyDistance(vehicleId, startDate, endDate) {
+    // Convert JS Date boundaries to IST date strings (YYYY-MM-DD) for filtering.
+    // This prevents timezone boundary mismatch where UTC BETWEEN includes/excludes
+    // points that belong to a different IST calendar day.
+    const toISTDateStr = (d) => {
+      const ist = new Date(d.getTime() + (5.5 * 60 * 60 * 1000)); // shift to IST
+      return ist.toISOString().slice(0, 10); // YYYY-MM-DD
+    };
+    const istStart = toISTDateStr(new Date(startDate));
+    const istEnd   = toISTDateStr(new Date(endDate));
+
     const query = `
       WITH raw AS (
           SELECT
               lat, lng, device_time, odometer, speed,
-              DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') AS date,
-              LAG(lat)         OVER (PARTITION BY DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
+              TO_CHAR(device_time AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') AS date,
+              LAG(lat)         OVER (PARTITION BY TO_CHAR(device_time AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD')
                                     ORDER BY device_time) AS prev_lat,
-              LAG(lng)         OVER (PARTITION BY DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
+              LAG(lng)         OVER (PARTITION BY TO_CHAR(device_time AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD')
                                     ORDER BY device_time) AS prev_lng,
-              LAG(device_time) OVER (PARTITION BY DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
+              LAG(device_time) OVER (PARTITION BY TO_CHAR(device_time AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD')
                                     ORDER BY device_time) AS prev_time
           FROM gps_points
           WHERE vehicle_id = $1
-            AND device_time BETWEEN $2 AND $3
+            AND TO_CHAR(device_time AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') BETWEEN $2 AND $3
       ),
       with_dist AS (
           SELECT date, odometer, device_time, speed,
@@ -345,16 +355,17 @@ class ReportRepository {
           FROM raw
       )
       SELECT
-          date,
-          ROUND(SUM(CASE WHEN speed > 0 THEN segment_km ELSE 0 END)::numeric, 2) AS distance_travelled,
+          date::text AS date,
+          ROUND(SUM(CASE WHEN speed > 0 THEN segment_km ELSE 0 END)::numeric, 3) AS distance_travelled,
           COUNT(*)                           AS point_count,
-          COALESCE((ARRAY_AGG(odometer ORDER BY device_time ASC) FILTER (WHERE odometer IS NOT NULL AND odometer > 0))[1], 0) AS start_odometer,
+          COALESCE((ARRAY_AGG(odometer ORDER BY device_time ASC)  FILTER (WHERE odometer IS NOT NULL AND odometer > 0))[1], 0) AS start_odometer,
           COALESCE((ARRAY_AGG(odometer ORDER BY device_time DESC) FILTER (WHERE odometer IS NOT NULL AND odometer > 0))[1], 0) AS end_odometer
       FROM with_dist
       GROUP BY date
+      HAVING TO_CHAR(MIN(device_time) AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') BETWEEN $2 AND $3
       ORDER BY date;
     `;
-    const res = await db.query(query, [vehicleId, startDate, endDate]);
+    const res = await db.query(query, [vehicleId, istStart, istEnd]);
     return res.rows;
   }
 
