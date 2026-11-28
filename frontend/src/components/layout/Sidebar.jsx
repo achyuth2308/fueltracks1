@@ -168,7 +168,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
   const [openNestedSubMenus, setOpenNestedSubMenus] = useState(() => ({
     'Fuel Reports': location.pathname.startsWith('/admin/reports/fuel-') ||
       location.pathname === '/admin/reports/kmpl-mileage' ||
-      location.pathname === '/admin/reports/lph-burn-rate'
+      location.pathname === '/admin/reports/lph-burn-rate',
   }));
 
   const [tripsExpanded, setTripsExpanded] = useState(() => {
@@ -192,6 +192,10 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
         location.pathname === '/admin/reports/lph-burn-rate') {
         setOpenNestedSubMenus(prev => ({ ...prev, 'Fuel Reports': true }));
       }
+    }
+    // Also open Reports submenu when on Non-Sensor Fuel Report page
+    if (location.pathname === '/fuel-report') {
+      setOpenSubMenus(prev => ({ ...prev, 'Reports': true }));
     }
     if (location.pathname === '/trips' || isTripReportPath(location.pathname)) {
       setTripsExpanded(true);
@@ -329,20 +333,19 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
             { name: 'Stoppage', path: '/admin/reports/stoppage' },
             { name: 'Individual', path: '/admin/reports/individual' },
             { name: 'Vehicle Consolidated', path: '/admin/reports/consolidated' },
-            { name: 'Fuel Consolidated', path: '/admin/reports/fuel-consolidated' },
             { name: 'Non-Sensor Fuel Report', path: '/fuel-report' },
-            ...(hasFuelFeature ? [{
+            {
               name: 'Fuel Reports',
               path: '/admin/reports/fuel-consumption',
               subItems: [
+                { name: 'Fuel Consolidated', path: '/admin/reports/fuel-consolidated' },
                 { name: 'Fuel Refill Report', path: '/admin/reports/fuel-refill' },
                 { name: 'Fuel Consumption', path: '/admin/reports/fuel-consumption' },
                 { name: 'Fuel Theft Report', path: '/admin/reports/fuel-theft' },
-                { name: 'Fuel Consolidated', path: '/admin/reports/fuel-consolidated' },
                 { name: 'KMPL Mileage Report', path: '/admin/reports/kmpl-mileage' },
                 { name: 'LPH Engine Burn Rate', path: '/admin/reports/lph-burn-rate' }
               ]
-            }] : [])
+            }
           ],
         },
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, color: '#0D9488', roles: ['customer'] },
