@@ -700,6 +700,8 @@ class ReportRepository {
           v.id AS vehicle_id,
           v.name AS vehicle_name,
           v.plate,
+          (SELECT string_agg(g.name, ', ') FROM groups g JOIN vehicle_groups vg ON g.id = vg.group_id WHERE vg.vehicle_id = v.id) AS group_name,
+          (SELECT o.name FROM organizations o WHERE o.id = v.org_id) AS org_name,
           v.metadata,
           CASE 
             WHEN (

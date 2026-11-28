@@ -144,7 +144,7 @@ const FuelReportsPage = ({ type: propType }) => {
       params.append('startDate', startIso);
       params.append('endDate', endIso);
 
-      if (activeFilters.vehicleId && activeFilters.vehicleId !== 'ALL') {
+      if (reportType !== 'consolidated' && activeFilters.vehicleId && activeFilters.vehicleId !== 'ALL' && activeFilters.vehicleId !== 'All') {
         params.append('vehicleId', activeFilters.vehicleId);
       }
 
@@ -196,7 +196,7 @@ const FuelReportsPage = ({ type: propType }) => {
           : (fuelOnly.length > 0 ? fuelOnly[0].id : vList[0].id);
 
         setFilters(prev => {
-          const nextFilters = { ...prev, vehicleId: initialVId };
+          const nextFilters = { ...prev, vehicleId: reportType === 'consolidated' ? 'ALL' : initialVId };
           handleFetchReport(nextFilters);
           return nextFilters;
         });
@@ -283,11 +283,13 @@ const FuelReportsPage = ({ type: propType }) => {
       if (selectedGroup !== 'All') {
         const resolvedG = resolveVehicleGroup(item.vehicle_id, item).trim().toLowerCase();
         const selG = selectedGroup.trim().toLowerCase();
+        const rawG = (item.group_name || '').toLowerCase();
         const vMeta = vehicles.find(v => String(v.id) === String(item.vehicle_id));
-        const gName = (vMeta?.group_name || vMeta?.group?.name || item.group_name || '').trim().toLowerCase();
+        const gName = (vMeta?.group_name || vMeta?.group?.name || '').trim().toLowerCase();
         const matchArr = Array.isArray(vMeta?.groups) && vMeta.groups.some(g => (g.name || '').trim().toLowerCase() === selG);
-        const matchStr = (vMeta?.group_name || item.group_name || '').split(',').map(s => s.trim().toLowerCase()).includes(selG);
-        matchesGroup = resolvedG === selG || gName === selG || matchArr || matchStr;
+        const matchStr = (vMeta?.group_name || '').split(',').map(s => s.trim().toLowerCase()).includes(selG);
+        const matchRawStr = rawG.split(',').map(s => s.trim().toLowerCase()).includes(selG);
+        matchesGroup = resolvedG === selG || gName === selG || matchArr || matchStr || matchRawStr || (!vMeta && !rawG);
       }
 
       return matchesSearch && matchesCat && matchesGroup;
@@ -797,7 +799,7 @@ const FuelReportsPage = ({ type: propType }) => {
               />
               <button
                 type="button"
-                onClick={() => handleFetchReport()}
+                onClick={() => handleFetchReport({ ...filters, vehicleId: 'ALL' })}
                 disabled={loading}
                 style={{
                   padding: '5px 16px',
