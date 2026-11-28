@@ -396,11 +396,14 @@ const VehicleController = {
         // Snapshot if baseline changed, or if baseline > 0 but snapshot was 0/missing
         if (oldBaseline !== newBaseline || (hasPositiveBaseline && (oldSnapshot === '0' || !oldSnapshot))) {
           // Fetch current GPS device odometer from vehicle_latest_state
+          // Prefer today_start_odometer (more stable) over raw odometer (can be 0 if device never sent CAN odo)
           const vls = await db.query(
-            'SELECT odometer FROM vehicle_latest_state WHERE vehicle_id = $1',
+            'SELECT odometer, today_start_odometer FROM vehicle_latest_state WHERE vehicle_id = $1',
             [id]
           );
-          const currentGpsOdo = vls.rows[0]?.odometer ?? 0;
+          const row = vls.rows[0] || {};
+          // Use the best available odometer: today_start_odometer > odometer (fallback to 0)
+          const currentGpsOdo = parseFloat(row.today_start_odometer) || parseFloat(row.odometer) || 0;
           finalMetadata.odometerSnapshot = String(currentGpsOdo);
         } else if (oldSnapshot && oldSnapshot !== '0' && (!finalMetadata.odometerSnapshot || finalMetadata.odometerSnapshot === '0')) {
           // Preserve valid existing snapshot so form submissions don't wipe it
