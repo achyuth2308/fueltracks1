@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, MapPin, ChevronDown, ChevronRight, Car, X, Layers } from 'lucide-react';
+import axiosInstance from '../../api/axios';
 
 /**
  * ReportGroupVehicleSidebar
@@ -13,6 +14,7 @@ import { Search, MapPin, ChevronDown, ChevronRight, Car, X, Layers } from 'lucid
  */
 const ReportGroupVehicleSidebar = ({
   vehicles = [],
+  groups = [],
   selectedVehicleId = '',
   selectedGroupId = '',
   onSelectVehicle,
@@ -23,9 +25,60 @@ const ReportGroupVehicleSidebar = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [openGroupId, setOpenGroupId] = useState(null);
+  const [fetchedGroups, setFetchedGroups] = useState([]);
 
-  // Group vehicles by their assigned group
+  // If official groups are not passed directly, fetch them to strictly match Dashboard groups
+  useEffect(() => {
+    if (!groups || groups.length === 0) {
+      axiosInstance.get('/api/admin/groups').then(res => {
+        const gData = res.data?.data || res.data?.groups || (Array.isArray(res.data) ? res.data : []);
+        if (Array.isArray(gData) && gData.length > 0) {
+          setFetchedGroups(gData);
+        }
+      }).catch(() => {});
+    }
+  }, [groups]);
+
+  const officialGroups = useMemo(() => {
+    return (Array.isArray(groups) && groups.length > 0) ? groups : fetchedGroups;
+  }, [groups, fetchedGroups]);
+
+  // Group vehicles by their assigned group (strictly adhering to official fleet groups)
   const groupMap = useMemo(() => {
+    if (Array.isArray(officialGroups) && officialGroups.length > 0) {
+      const result = officialGroups.map(g => {
+        const gNameLower = (g.name || '').trim().toLowerCase();
+        const vList = vehicles.filter(v => {
+          const matchArr = Array.isArray(v.groups) && v.groups.some(vg => vg.id === g.id || (vg.name && vg.name.trim().toLowerCase() === gNameLower));
+          const matchSingle = v.group?.id === g.id || (v.group?.name && v.group.name.trim().toLowerCase() === gNameLower);
+          const matchStr = v.group_name && v.group_name.split(',').map(s => s.trim().toLowerCase()).includes(gNameLower);
+          return matchArr || matchSingle || matchStr;
+        });
+        return {
+          id: g.id || gNameLower,
+          name: g.name,
+          vehicles: vList
+        };
+      }).filter(grp => grp.vehicles.length > 0);
+
+      // Sort named groups alphabetically
+      result.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+      // Unassigned vehicles check
+      const assignedIds = new Set();
+      result.forEach(grp => grp.vehicles.forEach(v => assignedIds.add(String(v.id))));
+      const unassignedVehicles = vehicles.filter(v => !assignedIds.has(String(v.id)));
+      if (unassignedVehicles.length > 0) {
+        result.push({
+          id: '__ungrouped__',
+          name: result.length === 0 ? 'All Vehicles' : 'Other / Unassigned',
+          vehicles: unassignedVehicles
+        });
+      }
+
+      return result;
+    }
+
     const map = new Map();
     const ungroupedKey = '__ungrouped__';
 
@@ -84,7 +137,7 @@ const ReportGroupVehicleSidebar = ({
     }
 
     return groupsArr;
-  }, [vehicles]);
+  }, [vehicles, officialGroups]);
 
   // Auto-expand group that contains the selectedVehicleId on initial load or change
   useEffect(() => {

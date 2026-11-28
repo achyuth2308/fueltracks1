@@ -164,7 +164,11 @@ const OnboardController = {
         if (!devType) {
           throw new Error(`Row ${i + 1}: Device Type is required. Please select a valid device type.`);
         }
-        const plate = String(d.registrationNo || d.vehicleId || '').trim().toUpperCase();
+        const vehicleId = String(d.vehicleId || d.registrationNo || '').trim();
+        if (!vehicleId) {
+          throw new Error(`Row ${i + 1}: Vehicle ID is required.`);
+        }
+        const plate = vehicleId.toUpperCase();
         const iccid = String(d.iccid || '').trim();
 
         if (seenImeisForm.has(imei)) {
@@ -172,12 +176,10 @@ const OnboardController = {
         }
         seenImeisForm.set(imei, i + 1);
 
-        if (plate) {
-          if (seenPlatesForm.has(plate)) {
-            throw new Error(`Duplicate Registration Number / Vehicle ID "${plate}" submitted in form (rows ${seenPlatesForm.get(plate)} & ${i + 1}). Duplicate data is not allowed.`);
-          }
-          seenPlatesForm.set(plate, i + 1);
+        if (seenPlatesForm.has(plate)) {
+          throw new Error(`Duplicate Vehicle ID / Registration Number "${plate}" submitted in form (rows ${seenPlatesForm.get(plate)} & ${i + 1}). Duplicate data is not allowed.`);
         }
+        seenPlatesForm.set(plate, i + 1);
 
         if (iccid) {
           if (seenIccidsForm.has(iccid)) {
@@ -285,8 +287,8 @@ const OnboardController = {
         } = device;
 
         deviceId = String(deviceId || '').trim();
-        registrationNo = String(registrationNo || '').trim();
-        vehicleId = String(vehicleId || '').trim();
+        vehicleId = String(vehicleId || registrationNo || '').trim();
+        registrationNo = String(registrationNo || vehicleId || '').trim();
         iccid = String(iccid || '').trim();
         vehicleName = vehicleName ? String(vehicleName).trim() : (vehicleId || `Vehicle ${deviceId}`);
         gpsSimNo = String(gpsSimNo || '').trim();

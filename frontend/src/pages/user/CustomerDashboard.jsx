@@ -1338,7 +1338,9 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             liveRouteMetrics={liveRouteMetrics}
             gaugesStyle={{
               left: typeof window !== 'undefined' && window.innerWidth > 768 ? '16px' : '12px',
-              bottom: typeof window !== 'undefined' && window.innerWidth > 768 ? '20px' : '75px'
+              bottom: '0px',
+              borderRadius: '10px 10px 0 0',
+              borderBottom: 'none'
             }}
           />
 

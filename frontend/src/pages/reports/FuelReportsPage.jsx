@@ -12,6 +12,7 @@ import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
 import AddressText from '../../components/ui/AddressText';
 import { getLocalDateString } from '../../utils/dateUtils';
 import * as vehicleApi from '../../api/vehicleApi';
+import ReportGroupVehicleSidebar from '../../components/reports/ReportGroupVehicleSidebar';
 import { hasVehicleFuelCapability } from '../../utils/licenseUtils';
 
 const getYesterdayString = () => {
@@ -72,9 +73,14 @@ const FuelReportsPage = ({ type: propType }) => {
   }, [vehicles]);
 
   // Extract unique group names for the group dropdown
+  // Group options (strictly official Dashboard groups)
   const groupOptions = useMemo(() => {
+    if (groups && groups.length > 0) {
+      const names = groups.map(g => g.name?.trim()).filter(Boolean);
+      names.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      return ['All', ...names];
+    }
     const names = new Set();
-    groups.forEach(g => { if (g.name) names.add(g.name.trim()); });
     vehicles.forEach(v => {
       const gn = v.group_name || v.group?.name;
       if (gn) names.add(gn.trim());
@@ -125,6 +131,10 @@ const FuelReportsPage = ({ type: propType }) => {
       const params = new URLSearchParams();
       params.append('startDate', start.toISOString());
       params.append('endDate', end.toISOString());
+      const activeOrgId = vehicles[0]?.org_id;
+      if (activeOrgId) {
+        params.append('orgId', activeOrgId);
+      }
       if (activeFilters.vehicleId && activeFilters.vehicleId !== 'ALL') {
         params.append('vehicleId', activeFilters.vehicleId);
       }
@@ -242,6 +252,21 @@ const FuelReportsPage = ({ type: propType }) => {
       return matchesSearch && matchesCat && matchesGroup;
     });
   }, [data, searchQuery, categoryFilter, selectedGroup, vehicles]);
+
+
+  // Group rows by assigned group for group-wise sectioning
+  const groupedRows = useMemo(() => {
+    const map = new Map();
+    filteredData.forEach(row => {
+      const vMeta = vehicles.find(v => String(v.id) === String(row.vehicle_id));
+      const gName = (vMeta?.group_name || vMeta?.group?.name || row.group_name || 'General Fleet').trim();
+      if (!map.has(gName)) {
+        map.set(gName, []);
+      }
+      map.get(gName).push(row);
+    });
+    return Array.from(map.entries());
+  }, [filteredData, vehicles]);
 
   // Aggregate Metrics based on report type
   const metrics = useMemo(() => {
@@ -428,6 +453,8 @@ const FuelReportsPage = ({ type: propType }) => {
         return {
           'S.No': idx + 1,
           'Vehicle Name': vName,
+          'Group Name': resolveVehicleGroup(row.vehicle_id),
+          'Group Name': resolveVehicleGroup(row.vehicle_id),
           'Reg No': row.plate || '-',
           'Category': cat,
           'Start Fuel (L)': row.start_fuel != null ? row.start_fuel : '-',
@@ -461,6 +488,7 @@ const FuelReportsPage = ({ type: propType }) => {
         return {
           'S.No': idx + 1,
           'Vehicle Name': vName,
+          'Group Name': resolveVehicleGroup(row.vehicle_id),
           'Reg No': row.plate || '-',
           'Category': cat,
           'Total Distance (km)': row.distance_travelled || 0,
@@ -479,6 +507,7 @@ const FuelReportsPage = ({ type: propType }) => {
         return {
           'S.No': idx + 1,
           'Vehicle Name': vName,
+          'Group Name': resolveVehicleGroup(row.vehicle_id),
           'Reg No': row.plate || '-',
           'Category': cat,
           'Distance Travelled (km)': row.distance_travelled || 0,
@@ -494,6 +523,7 @@ const FuelReportsPage = ({ type: propType }) => {
         return {
           'S.No': idx + 1,
           'Vehicle / Asset Name': vName,
+          'Group Name': resolveVehicleGroup(row.vehicle_id),
           'Reg No': row.plate || '-',
           'Category': cat,
           'Engine ON Hours': formatHMS(row.engine_on_seconds),
@@ -525,7 +555,62 @@ const FuelReportsPage = ({ type: propType }) => {
   const IconComp = config.icon;
 
   return (
-    <div style={{ padding: '8px 12px', background: '#F1F5F9', height: '100%', minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '8px', boxSizing: 'border-box' }}>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'row',
+      width: '100%',
+      height: '100%',
+      minHeight: 0,
+      overflow: 'hidden',
+      background: '#F1F5F9',
+      boxSizing: 'border-box'
+    }}>
+      {/* ═══════════ LEFT: GROUP ACCORDION VEHICLE SIDEBAR ═══════════ */}
+      <ReportGroupVehicleSidebar
+        vehicles={fuelCapableVehicles.length > 0 ? fuelCapableVehicles : vehicles}
+        groups={groups}
+        selectedVehicleId={filters.vehicleId}
+        selectedGroupId={selectedGroup}
+        showAllOption={true}
+        onSelectVehicle={(id, meta) => {
+          if (meta?.isAllInGroup) {
+            setSelectedGroup(meta.groupName);
+            const nextFilters = { ...filters, vehicleId: 'ALL' };
+            setFilters(nextFilters);
+            handleFetchReport(nextFilters, meta.groupName);
+          } else if (meta?.isAll) {
+            setSelectedGroup('All');
+            const nextFilters = { ...filters, vehicleId: 'ALL' };
+            setFilters(nextFilters);
+            handleFetchReport(nextFilters, 'All');
+          } else {
+            const nextFilters = { ...filters, vehicleId: id };
+            setFilters(nextFilters);
+            handleFetchReport(nextFilters, selectedGroup);
+          }
+        }}
+        onSelectGroup={(gName) => {
+          setSelectedGroup(gName);
+          const nextFilters = { ...filters, vehicleId: 'ALL' };
+          setFilters(nextFilters);
+          handleFetchReport(nextFilters, gName);
+        }}
+        width="175px"
+      />
+
+      {/* ═══════════ RIGHT: REPORT CONTENT ═══════════ */}
+      <div style={{
+        flex: 1,
+        minWidth: 0,
+        height: '100%',
+        minHeight: 0,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        padding: '8px 12px',
+        boxSizing: 'border-box'
+      }}>
 
       {/* 1. Header Box with Filter Controls (Compact Excel Ribbon) */}
       <div style={{
@@ -983,29 +1068,57 @@ const FuelReportsPage = ({ type: propType }) => {
                 </tr>
               </thead>
               <tbody>
-                {filteredData.map((row, idx) => {
-                  const cat = (row.vehicle_category || 'moving').toLowerCase();
-                  const refill = parseFloat(row.total_refill || 0);
-                  const dispensed = parseFloat(row.total_dispensed || 0);
-                  const theft = parseFloat(row.total_theft || 0);
-                  const consumed = row.consumption != null ? parseFloat(row.consumption) : null;
-                  const kmpl = row.kmpl != null ? parseFloat(row.kmpl) : null;
-                  const lph = row.lph != null ? parseFloat(row.lph) : null;
-                  const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
+                {groupedRows.map(([gName, rows], gIdx) => {
+                  const gConsumed = rows.reduce((acc, r) => acc + (parseFloat(r.consumption) || 0), 0);
+                  const gRefill = rows.reduce((acc, r) => acc + (parseFloat(r.total_refill) || 0), 0);
+                  const gTheft = rows.reduce((acc, r) => acc + (parseFloat(r.total_theft) || 0), 0);
+                  const gDist = rows.reduce((acc, r) => acc + (parseFloat(r.distance_travelled) || 0), 0);
+                  const gKmpl = gConsumed > 0 ? (gDist / gConsumed).toFixed(2) : '-';
 
                   return (
-                    <tr
-                      key={row.vehicle_id || idx}
-                      style={{
-                        background: bg,
-                        transition: 'background 0.1s ease'
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#F0F9FF'}
-                      onMouseLeave={e => e.currentTarget.style.background = bg}
-                    >
-                      <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', color: '#64748B', fontWeight: 600 }}>
-                        {idx + 1}
-                      </td>
+                    <React.Fragment key={gName || gIdx}>
+                      {/* Group Header Strip with Group Totals */}
+                      <tr style={{ background: '#E0F2FE', borderTop: '2px solid #0284C7', borderBottom: '1px solid #BAE6FD' }}>
+                        <td colSpan={20} style={{ padding: '6px 10px', fontWeight: 800, fontSize: '11.5px', color: '#0369A1', textAlign: 'left' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0284C7', display: 'inline-block' }} />
+                              Group: {gName} ({rows.length} {rows.length === 1 ? 'Vehicle' : 'Vehicles'})
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11px', fontWeight: 700, color: '#0F172A' }}>
+                              <span>Distance: <strong style={{ color: '#0284C7' }}>{Math.round(gDist)} km</strong></span>
+                              <span>Refill: <strong style={{ color: '#059669' }}>+{Math.round(gRefill)} L</strong></span>
+                              <span>Theft: <strong style={{ color: gTheft > 0 ? '#DC2626' : '#64748B' }}>{Math.round(gTheft)} L</strong></span>
+                              <span>Consumed: <strong style={{ color: '#EA580C' }}>{Math.round(gConsumed)} L</strong></span>
+                              <span>Avg Mileage: <strong style={{ color: '#4F46E5' }}>{gKmpl} km/L</strong></span>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {rows.map((row, idx) => {
+                        const cat = (row.vehicle_category || 'moving').toLowerCase();
+                        const refill = parseFloat(row.total_refill || 0);
+                        const dispensed = parseFloat(row.total_dispensed || 0);
+                        const theft = parseFloat(row.total_theft || 0);
+                        const consumed = row.consumption != null ? parseFloat(row.consumption) : null;
+                        const kmpl = row.kmpl != null ? parseFloat(row.kmpl) : null;
+                        const lph = row.lph != null ? parseFloat(row.lph) : null;
+                        const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
+
+                        return (
+                          <tr
+                            key={row.vehicle_id || idx}
+                            style={{
+                              background: bg,
+                              transition: 'background 0.1s ease'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#F0F9FF'}
+                            onMouseLeave={e => e.currentTarget.style.background = bg}
+                          >
+                            <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', color: '#64748B', fontWeight: 600 }}>
+                              {idx + 1}
+                            </td>
 
                       {/* Vehicle Name */}
                       <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', whiteSpace: 'nowrap' }}>
@@ -1309,6 +1422,9 @@ const FuelReportsPage = ({ type: propType }) => {
                         </>
                       )}
                     </tr>
+                          );
+                      })}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -1317,6 +1433,7 @@ const FuelReportsPage = ({ type: propType }) => {
         )}
       </div>
 
+      </div>
     </div>
   );
 };
