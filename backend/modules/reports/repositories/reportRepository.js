@@ -334,8 +334,8 @@ class ReportRepository {
           COALESCE(end_odometer, 0) AS end_odometer
         FROM vehicle_daily_summary
         WHERE vehicle_id = $1
-          AND report_date >= DATE($2 AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
-          AND report_date <= DATE($3 AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
+          AND report_date >= DATE($2 AT TIME ZONE 'Asia/Kolkata')
+          AND report_date <= DATE($3 AT TIME ZONE 'Asia/Kolkata')
         ORDER BY report_date ASC;
       `;
       const summaryRes = await db.query(summaryQuery, [vehicleId, startDate, endDate]);
@@ -429,8 +429,8 @@ class ReportRepository {
           COALESCE(ROUND(SUM(total_km)::numeric, 2), 0) AS distance_travelled
         FROM vehicle_daily_summary
         WHERE vehicle_id = $1
-          AND report_date >= DATE($2 AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
-          AND report_date <= DATE($3 AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata');
+          AND report_date >= DATE($2 AT TIME ZONE 'Asia/Kolkata')
+          AND report_date <= DATE($3 AT TIME ZONE 'Asia/Kolkata');
       `;
       const sRes = await db.query(summaryQuery, [vehicleId, startDate, endDate]);
       if (sRes.rows[0] && (sRes.rows[0].running_seconds > 0 || sRes.rows[0].stopped_seconds > 0 || sRes.rows[0].distance_travelled > 0)) {
@@ -778,31 +778,30 @@ class ReportRepository {
    *         reverse-geocode the From/To locations.
    */
   async getConsolidatedActivity(orgId, role, userId, startDate, endDate, vehicleId, groupId) {
-    let vehicleFilter = '($1::uuid IS NULL OR v.org_id = $1) AND v.is_active = TRUE';
-    const params = [orgId || null];
+    let vehicleFilter = 'v.is_active = TRUE';
+    const params = [];
 
-    if (role === 'customer') {
-      params[0] = userId;
-      vehicleFilter = `v.is_active = TRUE AND v.id IN (
-        SELECT vg.vehicle_id 
-        FROM vehicle_groups vg 
-        JOIN user_groups ug ON vg.group_id = ug.group_id
-        WHERE ug.user_id = $1
-      )`;
-    }
-
-    if (groupId && groupId !== 'All' && groupId !== 'ALL') {
+    if (vehicleId && vehicleId !== 'ALL' && vehicleId !== 'All') {
+      params.push(vehicleId);
+      vehicleFilter += ` AND v.id = $${params.length}`;
+    } else if (groupId && groupId !== 'All' && groupId !== 'ALL') {
       params.push(groupId);
       vehicleFilter += ` AND v.id IN (
         SELECT vg.vehicle_id 
         FROM vehicle_groups vg 
         WHERE vg.group_id = $${params.length}
       )`;
-    }
-
-    if (vehicleId && vehicleId !== 'ALL') {
-      params.push(vehicleId);
-      vehicleFilter += ` AND v.id = $${params.length}`;
+    } else if (role === 'customer') {
+      params.push(userId);
+      vehicleFilter += ` AND v.id IN (
+        SELECT vg.vehicle_id 
+        FROM vehicle_groups vg 
+        JOIN user_groups ug ON vg.group_id = ug.group_id
+        WHERE ug.user_id = $${params.length}
+      )`;
+    } else if (orgId) {
+      params.push(orgId);
+      vehicleFilter += ` AND v.org_id = $${params.length}`;
     }
 
     const query = `
@@ -810,6 +809,8 @@ class ReportRepository {
           v.id AS vehicle_id,
           v.name AS vehicle_name,
           v.plate,
+          (SELECT string_agg(g.name, ', ') FROM groups g JOIN vehicle_groups vg ON g.id = vg.group_id WHERE vg.vehicle_id = v.id) AS group_name,
+          (SELECT o.name FROM organizations o WHERE o.id = v.org_id) AS org_name,
           v.metadata,
           CASE 
             WHEN (

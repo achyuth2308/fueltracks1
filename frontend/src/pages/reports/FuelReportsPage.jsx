@@ -134,20 +134,17 @@ const FuelReportsPage = ({ type: propType }) => {
     try {
       const [sY, sM, sD] = activeFilters.startDate.split('-');
       const [sH, sMin] = (activeFilters.startTime || '00:00').split(':');
-      const start = new Date(parseInt(sY, 10), parseInt(sM, 10) - 1, parseInt(sD, 10), parseInt(sH, 10), parseInt(sMin, 10), 0);
+      const startIso = `${sY}-${sM}-${sD}T${sH || '00'}:${sMin || '00'}:00+05:30`;
 
       const [eY, eM, eD] = activeFilters.endDate.split('-');
       const [eH, eMin] = (activeFilters.endTime || '23:59').split(':');
-      const end = new Date(parseInt(eY, 10), parseInt(eM, 10) - 1, parseInt(eD, 10), parseInt(eH, 10), parseInt(eMin, 10), 59, 999);
+      const endIso = `${eY}-${eM}-${eD}T${eH || '23'}:${eMin || '59'}:59.999+05:30`;
 
       const params = new URLSearchParams();
-      params.append('startDate', start.toISOString());
-      params.append('endDate', end.toISOString());
-      const activeOrgId = vehicles[0]?.org_id;
-      if (activeOrgId) {
-        params.append('orgId', activeOrgId);
-      }
-      if (activeFilters.vehicleId && activeFilters.vehicleId !== 'ALL') {
+      params.append('startDate', startIso);
+      params.append('endDate', endIso);
+
+      if (reportType !== 'consolidated' && activeFilters.vehicleId && activeFilters.vehicleId !== 'ALL' && activeFilters.vehicleId !== 'All') {
         params.append('vehicleId', activeFilters.vehicleId);
       }
 
@@ -156,6 +153,11 @@ const FuelReportsPage = ({ type: propType }) => {
         const matchedG = groups.find(g => (g.name || '').trim().toLowerCase() === curGroup.trim().toLowerCase());
         if (matchedG?.id) {
           params.append('groupId', matchedG.id);
+        }
+      } else {
+        const activeOrgId = vehicles[0]?.org_id;
+        if (activeOrgId) {
+          params.append('orgId', activeOrgId);
         }
       }
 
@@ -194,7 +196,7 @@ const FuelReportsPage = ({ type: propType }) => {
           : (fuelOnly.length > 0 ? fuelOnly[0].id : vList[0].id);
 
         setFilters(prev => {
-          const nextFilters = { ...prev, vehicleId: initialVId };
+          const nextFilters = { ...prev, vehicleId: reportType === 'consolidated' ? 'ALL' : initialVId };
           handleFetchReport(nextFilters);
           return nextFilters;
         });
@@ -281,11 +283,13 @@ const FuelReportsPage = ({ type: propType }) => {
       if (selectedGroup !== 'All') {
         const resolvedG = resolveVehicleGroup(item.vehicle_id, item).trim().toLowerCase();
         const selG = selectedGroup.trim().toLowerCase();
+        const rawG = (item.group_name || '').toLowerCase();
         const vMeta = vehicles.find(v => String(v.id) === String(item.vehicle_id));
-        const gName = (vMeta?.group_name || vMeta?.group?.name || item.group_name || '').trim().toLowerCase();
+        const gName = (vMeta?.group_name || vMeta?.group?.name || '').trim().toLowerCase();
         const matchArr = Array.isArray(vMeta?.groups) && vMeta.groups.some(g => (g.name || '').trim().toLowerCase() === selG);
-        const matchStr = (vMeta?.group_name || item.group_name || '').split(',').map(s => s.trim().toLowerCase()).includes(selG);
-        matchesGroup = resolvedG === selG || gName === selG || matchArr || matchStr;
+        const matchStr = (vMeta?.group_name || '').split(',').map(s => s.trim().toLowerCase()).includes(selG);
+        const matchRawStr = rawG.split(',').map(s => s.trim().toLowerCase()).includes(selG);
+        matchesGroup = resolvedG === selG || gName === selG || matchArr || matchStr || matchRawStr || (!vMeta && !rawG);
       }
 
       return matchesSearch && matchesCat && matchesGroup;
@@ -336,8 +340,8 @@ const FuelReportsPage = ({ type: propType }) => {
         valA = parseFloat(a.running_seconds) || 0;
         valB = parseFloat(b.running_seconds) || 0;
       } else if (sortField === 'engine_sec') {
-        valA = parseFloat(a.engine_on_seconds) || 0;
-        valB = parseFloat(b.engine_on_seconds) || 0;
+        valA = parseFloat(a.engine_on_seconds) || ((parseFloat(a.running_seconds) || 0) + (parseFloat(a.idle_seconds) || 0));
+        valB = parseFloat(b.engine_on_seconds) || ((parseFloat(b.running_seconds) || 0) + (parseFloat(b.idle_seconds) || 0));
       } else if (sortField === 'idle_sec') {
         valA = parseFloat(a.idle_seconds) || 0;
         valB = parseFloat(b.idle_seconds) || 0;
@@ -399,7 +403,7 @@ const FuelReportsPage = ({ type: propType }) => {
       const theft = parseFloat(row.total_theft || 0);
       const consumed = parseFloat(row.consumption || 0);
       const dist = parseFloat(row.distance_travelled || 0);
-      const engSec = parseFloat(row.engine_on_seconds || 0);
+      const engSec = parseFloat(row.engine_on_seconds) || ((parseFloat(row.running_seconds) || 0) + (parseFloat(row.idle_seconds) || 0));
       const runSec = parseFloat(row.running_seconds || 0);
       const idleSec = parseFloat(row.idle_seconds || 0);
 
@@ -608,7 +612,7 @@ const FuelReportsPage = ({ type: propType }) => {
           'Distance Travelled': dist.toFixed(1),
           'Kmpl': row.kmpl != null && row.kmpl > 0 ? parseFloat(row.kmpl).toFixed(2) : '-',
           'Running Hrs': formatHMS(row.running_seconds),
-          'Engine ON Hours': formatHMS(row.engine_on_seconds),
+          'Engine ON Hours': formatHMS(row.engine_on_seconds || ((parseFloat(row.running_seconds) || 0) + (parseFloat(row.idle_seconds) || 0))),
           'Secondary Engine Hrs': '00:00:00',
           'Engine Idle Hrs': formatHMS(row.idle_seconds),
           'Ltr Per Hr': row.lph != null && row.lph > 0 ? parseFloat(row.lph).toFixed(2) : '0.00',
@@ -643,7 +647,7 @@ const FuelReportsPage = ({ type: propType }) => {
           'Group Name': resolveVehicleGroup(row.vehicle_id, row),
           'Reg No': row.plate || '-',
           'Category': cat,
-          'Engine ON Hours': formatHMS(row.engine_on_seconds),
+          'Engine ON Hours': formatHMS(row.engine_on_seconds || ((parseFloat(row.running_seconds) || 0) + (parseFloat(row.idle_seconds) || 0))),
           'Working / Moving Time': formatHMS(row.running_seconds),
           'Idle Time': formatHMS(row.idle_seconds),
           'Fuel Consumed (L)': row.consumption != null ? row.consumption : '-',
@@ -663,7 +667,7 @@ const FuelReportsPage = ({ type: propType }) => {
         'Theft (-L)': row.total_theft || 0,
         'Net Consumed (L)': row.consumption != null ? row.consumption : '-',
         'Distance (km)': row.distance_travelled || 0,
-        'Engine ON Time': formatHMS(row.engine_on_seconds),
+        'Engine ON Time': formatHMS(row.engine_on_seconds || ((parseFloat(row.running_seconds) || 0) + (parseFloat(row.idle_seconds) || 0))),
         'Burn Rate (L/h)': row.lph != null ? row.lph : '-'
       };
     });
@@ -795,7 +799,7 @@ const FuelReportsPage = ({ type: propType }) => {
               />
               <button
                 type="button"
-                onClick={() => handleFetchReport()}
+                onClick={() => handleFetchReport({ ...filters, vehicleId: 'ALL' })}
                 disabled={loading}
                 style={{
                   padding: '5px 16px',
@@ -1557,7 +1561,7 @@ const FuelReportsPage = ({ type: propType }) => {
                           </td>
                           {/* 16. Engine ON Hours */}
                           <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#0284C7', textAlign: 'center', fontFamily: 'monospace' }}>
-                            {formatHMS(row.engine_on_seconds)}
+                            {formatHMS(row.engine_on_seconds || ((parseFloat(row.running_seconds) || 0) + (parseFloat(row.idle_seconds) || 0)))}
                           </td>
                           {/* 17. Secondary Engine Hrs */}
                           <td style={{ padding: '6px 8px', border: '1px solid #CBD5E1', color: textColor || '#64748B', textAlign: 'center', fontFamily: 'monospace' }}>
@@ -1909,7 +1913,7 @@ const FuelReportsPage = ({ type: propType }) => {
                               {reportType === 'lph' && (
                                 <>
                                   <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#0284C7', fontWeight: 700 }}>
-                                    {formatHMS(row.engine_on_seconds)}
+                                    {formatHMS(row.engine_on_seconds || ((parseFloat(row.running_seconds) || 0) + (parseFloat(row.idle_seconds) || 0)))}
                                   </td>
                                   <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
                                     {formatHMS(row.running_seconds)}
@@ -1976,7 +1980,7 @@ const FuelReportsPage = ({ type: propType }) => {
                                     {row.distance_travelled || 0} km
                                   </td>
                                   <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
-                                    {formatHMS(row.engine_on_seconds)}
+                                    {formatHMS(row.engine_on_seconds || ((parseFloat(row.running_seconds) || 0) + (parseFloat(row.idle_seconds) || 0)))}
                                   </td>
                                   <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
                                     {theft > 0 ? (

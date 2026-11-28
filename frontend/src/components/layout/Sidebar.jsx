@@ -336,7 +336,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
             { name: 'Non-Sensor Fuel Report', path: '/fuel-report' }
           ],
         },
-        ...(hasFuelFeature ? [{
+        {
           name: 'Fuel Reports',
           path: '/admin/reports/fuel-consumption',
           icon: Fuel,
@@ -350,7 +350,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
             { name: 'KMPL Mileage Report', path: '/admin/reports/kmpl-mileage' },
             { name: 'LPH Engine Burn Rate', path: '/admin/reports/lph-burn-rate' }
           ]
-        }] : []),
+        },
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, color: '#0D9488', roles: ['customer'] },
         { name: 'Alerts', path: '/alerts', icon: Bell, color: '#EF4444', roles: ['customer'] },
       ],

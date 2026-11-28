@@ -432,29 +432,77 @@ const VehiclesAdminPage = () => {
 
       {/* Filter Toolbar */}
       <div style={{
-        background: '#FFFFFF', borderRadius: '10px', border: '1px solid #E2E8F0',
-        padding: '8px 12px', marginBottom: '12px', display: 'flex', gap: '12px',
-        alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap'
+        background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0',
+        padding: '12px', marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '10px'
       }}>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flex: 1, minWidth: '280px' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            <Search size={16} color="#94A3B8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
-            <input
-              type="text"
-              placeholder="Search by Vehicle Name, Plate, IMEI, Owner, Group, SIM..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+        {/* Full-width prominent Search Bar */}
+        <div style={{ position: 'relative', width: '100%' }}>
+          <Search size={18} color="#94A3B8" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
+          <input
+            type="text"
+            placeholder="Search by Vehicle Name, Plate, IMEI, Owner, Group, SIM..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              height: '42px',
+              padding: searchQuery ? '0 40px 0 42px' : '0 16px 0 42px',
+              borderRadius: '8px',
+              border: '1.5px solid #CBD5E1',
+              fontSize: '14px',
+              fontWeight: 500,
+              outline: 'none',
+              background: '#F8FAFC',
+              color: '#0F172A',
+              boxSizing: 'border-box',
+              transition: 'all 0.15s ease'
+            }}
+            onFocus={e => {
+              e.target.style.borderColor = '#ea580c';
+              e.target.style.background = '#FFFFFF';
+              e.target.style.boxShadow = '0 0 0 3px rgba(234, 88, 12, 0.12)';
+            }}
+            onBlur={e => {
+              e.target.style.borderColor = '#CBD5E1';
+              e.target.style.background = '#F8FAFC';
+              e.target.style.boxShadow = 'none';
+            }}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
               style={{
-                width: '100%', padding: '6px 12px 6px 36px', borderRadius: '6px',
-                border: '1px solid #CBD5E1', fontSize: '12px', outline: 'none',
-                background: '#FFFFFF', color: '#0F172A', boxSizing: 'border-box'
+                position: 'absolute',
+                right: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: '#E2E8F0',
+                border: 'none',
+                borderRadius: '50%',
+                width: '22px',
+                height: '22px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#475569',
+                fontSize: '12px',
+                fontWeight: 700,
+                padding: 0
               }}
-            />
-          </div>
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
 
+        {/* Filters Row */}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', width: '100%' }}>
           {/* Org Filter (for Superadmin/Dealer) */}
           {(isSuperAdmin || user?.role === 'dealer') && orgs.length > 0 && (
-            <div style={{ width: '210px' }}>
+            <div style={{ width: '210px', flex: '1 1 180px' }}>
               <FuelTracksSelect
                 height={34}
                 value={selectedOrgId}
@@ -474,7 +522,7 @@ const VehiclesAdminPage = () => {
 
           {/* Group Filter */}
           {groups.length > 0 && (
-            <div style={{ width: '180px' }}>
+            <div style={{ width: '180px', flex: '1 1 150px' }}>
               <FuelTracksSelect
                 height={34}
                 value={String(selectedGroupId)}
@@ -493,7 +541,7 @@ const VehiclesAdminPage = () => {
           )}
 
           {/* License Tier Filter */}
-          <div style={{ width: '185px' }}>
+          <div style={{ width: '185px', flex: '1 1 150px' }}>
             <FuelTracksSelect
               height={34}
               value={selectedLicenseTier}

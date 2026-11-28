@@ -6,10 +6,19 @@ class ReportController {
   
   // Helper to parse dates
   parseDates(req) {
-    const { startDate, endDate } = req.query;
+    let { startDate, endDate } = req.query;
     if (!startDate || !endDate) {
       throw new Error('startDate and endDate are required');
     }
+
+    // Ensure plain YYYY-MM-DD or date-only inputs strictly follow IST (UTC+05:30)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+      startDate = `${startDate}T00:00:00+05:30`;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+      endDate = `${endDate}T23:59:59.999+05:30`;
+    }
+
     return {
       start: new Date(startDate),
       end: new Date(endDate)
