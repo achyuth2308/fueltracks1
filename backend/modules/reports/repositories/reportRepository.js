@@ -833,7 +833,16 @@ class ReportRepository {
         batches.push(vehicleIds.slice(i, i + BATCH_SIZE));
       }
 
-      const batchResults = await Promise.all(batches.map(batch => db.query(query, [batch, startDate, endDate])));
+      const pMap = async (items, fn, concurrency = 3) => {
+        const results = [];
+        for (let i = 0; i < items.length; i += concurrency) {
+          const chunk = items.slice(i, i + concurrency);
+          results.push(...(await Promise.all(chunk.map(fn))));
+        }
+        return results;
+      };
+
+      const batchResults = await pMap(batches, batch => db.query(query, [batch, startDate, endDate]), 3);
       for (const res of batchResults) {
         for (const row of res.rows) {
           if (!rawMap[row.vehicle_id]) rawMap[row.vehicle_id] = [];
@@ -952,7 +961,16 @@ class ReportRepository {
         ORDER BY vehicle_id, device_time ASC
       `;
 
-      const batchResults = await Promise.all(batches.map(batch => db.query(query, [batch, startDate, endDate])));
+      const pMap = async (items, fn, concurrency = 3) => {
+        const results = [];
+        for (let i = 0; i < items.length; i += concurrency) {
+          const chunk = items.slice(i, i + concurrency);
+          results.push(...(await Promise.all(chunk.map(fn))));
+        }
+        return results;
+      };
+
+      const batchResults = await pMap(batches, batch => db.query(query, [batch, startDate, endDate]), 3);
       for (const res of batchResults) {
         for (const row of res.rows) {
           if (!map[row.vehicle_id]) map[row.vehicle_id] = [];
