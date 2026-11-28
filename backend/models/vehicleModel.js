@@ -8,9 +8,34 @@ const { redis } = require('../config/redis');
 
 function enrichVehicleFuel(v) {
   if (!v) return v;
-  let tankCap = null;
   const meta = v.metadata || {};
   const fuelCal = meta.fuelCalibration || meta.fuel || {};
+
+  // Check if vehicle has fuel monitoring capability (hardware sensor OR manual fuel)
+  const isFuelTesting = Boolean(v.org_name && String(v.org_name).toLowerCase().includes('fueltesting'));
+  const hasFuelInName = Boolean((v.name && String(v.name).toLowerCase().includes('fuel')) || (v.plate && String(v.plate).toLowerCase().includes('fuel')));
+  const hasSensorSerial = Boolean(meta.sensorNo && String(meta.sensorNo).trim() !== '' && String(meta.sensorNo).trim() !== '0');
+  const hasCalibration = Boolean(fuelCal && typeof fuelCal === 'object' && (fuelCal.tanks || fuelCal.calibration || fuelCal.calibrationPoints));
+  const hasHardwareFlag = v.fuel_sensor === true || v.has_fuel_sensor === true || meta.fuel_sensor === true || meta.has_fuel_sensor === true;
+  const hasTankSize = parseFloat(meta.tankSize || meta.tank_size || meta.tankCapacity || 0) > 0;
+  const isManualFuel = Boolean(v.is_manual_fuel || v.manual_tank_capacity || (v.org_name && String(v.org_name).toLowerCase().includes('manual fuel')));
+
+  const hasFuelCapability = isFuelTesting || hasFuelInName || hasSensorSerial || hasCalibration || hasHardwareFlag || hasTankSize || isManualFuel;
+
+  if (!hasFuelCapability) {
+    return {
+      ...v,
+      current_fuel: null,
+      fuel: null,
+      tank_capacity: null,
+      fuel_percentage: null,
+      manual_estimated_range: null,
+      manual_fuel_consumed: null,
+      manual_mileage: null
+    };
+  }
+
+  let tankCap = null;
   if (fuelCal.tanks && typeof fuelCal.tanks === 'object') {
     const tVals = Object.values(fuelCal.tanks);
     const sumCap = tVals.reduce((sum, t) => sum + (parseFloat(t.tankSize) || 0), 0);

@@ -976,6 +976,7 @@ export default function ObdTerminalPage() {
                   <th className="py-3 px-4">Packet Type</th>
                   <th className="py-3 px-4">RPM</th>
                   <th className="py-3 px-4">GPS Speed</th>
+                  <th className="py-3 px-4">ODO</th>
                   <th className="py-3 px-4">Voltage</th>
                   <th className="py-3 px-4">In Tank (L)</th>
                   <th className="py-3 px-4">Lifetime Burned (L)</th>
@@ -1024,6 +1025,17 @@ export default function ObdTerminalPage() {
                       </td>
                       <td className="py-2.5 px-4 font-mono font-medium text-slate-900">
                         {d.gpsSpeedKmh !== null && d.gpsSpeedKmh !== undefined ? `${d.gpsSpeedKmh} km/h` : (d.speed !== undefined ? `${d.speed} km/h` : '—')}
+                      </td>
+                      <td className="py-2.5 px-4 font-mono font-medium text-slate-900 whitespace-nowrap">
+                        {d.clusterOdometerKm !== undefined && d.clusterOdometerKm !== null
+                          ? `${d.clusterOdometerKm} km`
+                          : (d.gpsOdometerKm !== undefined && d.gpsOdometerKm !== null
+                              ? `${d.gpsOdometerKm} km`
+                              : (d.odometer !== undefined && d.odometer !== null
+                                  ? `${Number(d.odometer) > 100000 ? (Number(d.odometer) / 10).toFixed(1) : d.odometer} km`
+                                  : (pkt.odometer !== undefined && pkt.odometer !== null
+                                      ? `${pkt.odometer} km`
+                                      : '—')))}
                       </td>
                       <td className="py-2.5 px-4 font-mono text-slate-700">
                         {d.batteryVoltageV ? `${d.batteryVoltageV} V` : (d.voltage ? `${d.voltage} V` : '—')}
