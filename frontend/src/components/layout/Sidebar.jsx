@@ -193,6 +193,10 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
     } else if (location.pathname.startsWith('/admin/reports') && location.pathname !== '/admin/reports/dashboard' && !isTripReportPath(location.pathname)) {
       setOpenSubMenus(prev => ({ ...prev, 'Reports': true }));
     }
+    // Also open Reports submenu when on Non-Sensor Fuel Report page
+    if (location.pathname === '/fuel-report') {
+      setOpenSubMenus(prev => ({ ...prev, 'Reports': true }));
+    }
     if (location.pathname === '/trips' || isTripReportPath(location.pathname)) {
       setTripsExpanded(true);
     }
@@ -294,7 +298,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
           subItems: [
             { name: 'Live Tracking', path: '/tracking' },
             { name: 'History Tracking', path: '/history' },
-            ...((vehicles && vehicles.length > 1) ? [{ name: 'Multi Tracking', path: '/tracking?mode=multi' }] : []),
+            { name: 'Multi Tracking', path: '/tracking?mode=multi' },
           ],
         },
         {
@@ -339,10 +343,10 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
           color: '#F97316',
           roles: ['customer', 'superadmin', 'dealer'],
           subItems: [
+            { name: 'Fuel Consolidated', path: '/admin/reports/fuel-consolidated' },
             { name: 'Fuel Refill Report', path: '/admin/reports/fuel-refill' },
             { name: 'Fuel Consumption', path: '/admin/reports/fuel-consumption' },
             { name: 'Fuel Theft Report', path: '/admin/reports/fuel-theft' },
-            { name: 'Fuel Consolidated', path: '/admin/reports/fuel-consolidated' },
             { name: 'KMPL Mileage Report', path: '/admin/reports/kmpl-mileage' },
             { name: 'LPH Engine Burn Rate', path: '/admin/reports/lph-burn-rate' }
           ]

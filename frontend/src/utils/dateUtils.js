@@ -18,6 +18,14 @@ export const formatLocalTime = (isoString) => {
 export const formatLocalDate = (isoString) => {
   if (!isoString) return 'N/A';
   try {
+    // If it's already YYYY-MM-DD (plain date string from backend), parse directly
+    // to avoid any UTC-midnight → local-timezone shift.
+    const plain = String(isoString).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(plain)) {
+      const [y, m, d] = plain.split('-');
+      return `${d}-${m}-${y}`;
+    }
+    // Otherwise fall back to JS Date (timestamptz strings)
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return 'N/A';
     const d = String(date.getDate()).padStart(2, '0');

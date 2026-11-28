@@ -17,7 +17,8 @@ import LiveFuelModal from '../../components/modals/LiveFuelModal';
   const directFuelTypeOptions = [
     { value: '', label: '-- Select --' },
     { value: 'Jointech', label: 'Jointech' },
-    { value: 'Technoton', label: 'Technoton' }
+    { value: 'Technoton', label: 'Technoton' },
+    { value: 'BSTPL', label: 'BSTPL' }
   ];
 
   const modeOptions = [
@@ -94,7 +95,7 @@ const TankCalibrationBlock = React.memo(({
   const [fuelType, setFuelType] = useState(() => {
     const rawFType = initialData?.fuelType;
     if (initialData?.calibrateType === "Direct") {
-      return (rawFType === "Jointech" || rawFType === "Technoton") ? rawFType : "Jointech";
+      return (rawFType === "Jointech" || rawFType === "Technoton" || rawFType === "BSTPL") ? rawFType : "Jointech";
     }
     return rawFType || (tankNum === 2 ? "LLS Fuel 2" : "LLS Fuel 1(Serial)");
   });
@@ -139,7 +140,7 @@ const TankCalibrationBlock = React.memo(({
     setModeOfVehicle(initialData.modeOfVehicle || "");
     const rawLoadedFuelType = targetSensor?.fuelType || initialData.fuelType;
     const finalLoadedFuelType = activeCalType === "Direct"
-      ? ((rawLoadedFuelType === "Jointech" || rawLoadedFuelType === "Technoton") ? rawLoadedFuelType : "Jointech")
+      ? ((rawLoadedFuelType === "Jointech" || rawLoadedFuelType === "Technoton" || rawLoadedFuelType === "BSTPL") ? rawLoadedFuelType : "Jointech")
       : (rawLoadedFuelType || (tankNum === 2 ? "LLS Fuel 2" : "LLS Fuel 1(Serial)"));
     setFuelType(finalLoadedFuelType);
     setMinAdc(targetSensor?.minAdc !== undefined && targetSensor?.minAdc !== null ? String(targetSensor.minAdc) : "");
@@ -314,7 +315,7 @@ const TankCalibrationBlock = React.memo(({
     if (lower.includes("analog")) {
       setMinAdc("0.00");
       setMaxAdc("5.00");
-    } else if (lower.includes("serial") || lower.includes("lls") || lower.includes("jointech") || lower.includes("technoton")) {
+    } else if (lower.includes("serial") || lower.includes("lls") || lower.includes("jointech") || lower.includes("technoton") || lower.includes("bstpl")) {
       setMinAdc("0");
       setMaxAdc("4095");
     }
@@ -323,6 +324,8 @@ const TankCalibrationBlock = React.memo(({
         setDirectMultiplier('0.01');
       } else if (selectedType === 'Technoton') {
         setDirectMultiplier('0.1');
+      } else if (selectedType === 'BSTPL') {
+        setDirectMultiplier('1.0');
       }
     }
     if (selectedType.includes("BLE")) {
@@ -333,16 +336,18 @@ const TankCalibrationBlock = React.memo(({
   const handleCalibrateTypeChange = (newType) => {
     setCalibrateType(newType);
     if (newType === 'Direct') {
-      if (fuelType !== 'Jointech' && fuelType !== 'Technoton') {
+      if (fuelType !== 'Jointech' && fuelType !== 'Technoton' && fuelType !== 'BSTPL') {
         setFuelType('Jointech');
         setDirectMultiplier('0.01');
       } else if (fuelType === 'Jointech' && (!directMultiplier || directMultiplier === '1.0')) {
         setDirectMultiplier('0.01');
       } else if (fuelType === 'Technoton' && (!directMultiplier || directMultiplier === '1.0')) {
         setDirectMultiplier('0.1');
+      } else if (fuelType === 'BSTPL' && (!directMultiplier || directMultiplier === '0.01' || directMultiplier === '0.1')) {
+        setDirectMultiplier('1.0');
       }
     } else {
-      if (fuelType === 'Jointech' || fuelType === 'Technoton') {
+      if (fuelType === 'Jointech' || fuelType === 'Technoton' || fuelType === 'BSTPL') {
         setFuelType(tankNum === 2 ? 'LLS Fuel 2' : 'LLS Fuel 1(Serial)');
       }
     }
@@ -1062,7 +1067,7 @@ const TankCalibrationBlock = React.memo(({
                       <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                         {fuelType && fuelType.toLowerCase().includes('analog')
                           ? 'Minimum Voltage (V)'
-                          : (fuelType && (fuelType.toLowerCase().includes('serial') || fuelType.toLowerCase().includes('lls') || fuelType.toLowerCase().includes('jointech') || fuelType.toLowerCase().includes('technoton'))
+                          : (fuelType && (fuelType.toLowerCase().includes('serial') || fuelType.toLowerCase().includes('lls') || fuelType.toLowerCase().includes('jointech') || fuelType.toLowerCase().includes('technoton') || fuelType.toLowerCase().includes('bstpl'))
                             ? 'Minimum RS Value'
                             : 'Minimum (RS value/Voltage)')}
                       </label>
@@ -1099,7 +1104,7 @@ const TankCalibrationBlock = React.memo(({
                       <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                         {fuelType && fuelType.toLowerCase().includes('analog')
                           ? 'Maximum Voltage (V)'
-                          : (fuelType && (fuelType.toLowerCase().includes('serial') || fuelType.toLowerCase().includes('lls') || fuelType.toLowerCase().includes('jointech') || fuelType.toLowerCase().includes('technoton'))
+                          : (fuelType && (fuelType.toLowerCase().includes('serial') || fuelType.toLowerCase().includes('lls') || fuelType.toLowerCase().includes('jointech') || fuelType.toLowerCase().includes('technoton') || fuelType.toLowerCase().includes('bstpl'))
                             ? 'Maximum RS Value'
                             : 'Maximum (RS value/Voltage)')}
                       </label>

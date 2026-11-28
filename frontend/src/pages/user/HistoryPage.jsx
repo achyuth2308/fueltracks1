@@ -84,7 +84,7 @@ const getDirectionStr = (course, prevLat, prevLng, currLat, currLng) => {
   return 'N/A';
 };
 
-const HistoryPage = () => {
+const HistoryPage = ({ setAppVehicles }) => {
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -368,7 +368,13 @@ const HistoryPage = () => {
         ]);
 
         if (groupsRes?.success) setAllGroups(groupsRes.data || []);
-        if (vehiclesRes?.success) setAllVehicles(vehiclesRes.data || []);
+        if (vehiclesRes?.success) {
+          const vData = vehiclesRes.data || [];
+          setAllVehicles(vData);
+          if (setAppVehicles && vData.length > 0) {
+            setAppVehicles(vData);
+          }
+        }
 
       } catch (err) {
         console.error('Failed to fetch initial data:', err);
