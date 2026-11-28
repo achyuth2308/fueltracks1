@@ -436,8 +436,8 @@ const VehiclesAdminPage = () => {
         padding: '8px 12px', marginBottom: '12px', display: 'flex', gap: '12px',
         alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap'
       }}>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flex: 1, minWidth: '280px' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '180px' }}>
             <Search size={16} color="#94A3B8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
             <input
               type="text"
@@ -454,7 +454,7 @@ const VehiclesAdminPage = () => {
 
           {/* Org Filter (for Superadmin/Dealer) */}
           {(isSuperAdmin || user?.role === 'dealer') && orgs.length > 0 && (
-            <div style={{ width: '210px' }}>
+            <div style={{ width: '210px', flex: '1 1 180px' }}>
               <FuelTracksSelect
                 height={34}
                 value={selectedOrgId}
@@ -474,7 +474,7 @@ const VehiclesAdminPage = () => {
 
           {/* Group Filter */}
           {groups.length > 0 && (
-            <div style={{ width: '180px' }}>
+            <div style={{ width: '180px', flex: '1 1 150px' }}>
               <FuelTracksSelect
                 height={34}
                 value={String(selectedGroupId)}
@@ -493,7 +493,7 @@ const VehiclesAdminPage = () => {
           )}
 
           {/* License Tier Filter */}
-          <div style={{ width: '185px' }}>
+          <div style={{ width: '185px', flex: '1 1 150px' }}>
             <FuelTracksSelect
               height={34}
               value={selectedLicenseTier}
