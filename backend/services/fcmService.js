@@ -90,11 +90,17 @@ async function sendMulticast(tokens, { title, body, data = {} }) {
         }
       },
       apns: {
+        headers: {
+          'apns-push-type': 'alert',
+          'apns-priority': '10',
+          'apns-expiration': '0',
+        },
         payload: {
           aps: {
             alert: { title, body },
             sound: isTheft ? 'police_siren.wav' : 'default',
-            badge: 1
+            badge: 1,
+            contentAvailable: true,
           },
         },
       },
