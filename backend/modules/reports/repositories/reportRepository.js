@@ -779,16 +779,16 @@ class ReportRepository {
           SELECT
               g.vehicle_id, g.lat, g.lng, g.speed, g.ignition, g.device_time,
               CASE WHEN g.fuel > 0 THEN g.fuel ELSE NULL END AS fuel,
-              LAG(g.lat)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lat,
-              LAG(g.lng)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lng,
-              LAG(g.device_time) OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_time,
+              LAG(g.lat)         OVER (ORDER BY g.device_time) AS prev_lat,
+              LAG(g.lng)         OVER (ORDER BY g.device_time) AS prev_lng,
+              LAG(g.device_time) OVER (ORDER BY g.device_time) AS prev_time,
               CASE
                 WHEN COALESCE(g.speed, 0) > 2 THEN 'Moving'
                 WHEN COALESCE(g.speed, 0) <= 2 AND g.ignition = true THEN 'Idle'
                 ELSE 'Parked'
               END AS status
           FROM gps_points g
-          WHERE g.vehicle_id = ANY($1::uuid[])
+          WHERE g.vehicle_id = $1
             AND g.device_time BETWEEN $2 AND $3
       ),
       with_dist AS (
@@ -798,13 +798,13 @@ class ReportRepository {
       ),
       state_changes AS (
           SELECT *,
-              CASE WHEN status != LAG(status) OVER (PARTITION BY vehicle_id ORDER BY device_time)
-                        OR LAG(status) OVER (PARTITION BY vehicle_id ORDER BY device_time) IS NULL
+              CASE WHEN status != LAG(status) OVER (ORDER BY device_time)
+                        OR LAG(status) OVER (ORDER BY device_time) IS NULL
               THEN 1 ELSE 0 END AS is_change
           FROM with_dist
       ),
       islands AS (
-          SELECT *, SUM(is_change) OVER (PARTITION BY vehicle_id ORDER BY device_time) AS interval_id
+          SELECT *, SUM(is_change) OVER (ORDER BY device_time) AS interval_id
           FROM state_changes
       )
       SELECT
@@ -822,18 +822,13 @@ class ReportRepository {
           (ARRAY_AGG(fuel ORDER BY device_time DESC) FILTER (WHERE fuel IS NOT NULL))[1] AS end_fuel
       FROM islands
       GROUP BY vehicle_id, interval_id, status
-      ORDER BY vehicle_id, start_time;
+      ORDER BY start_time;
     `;
 
     try {
       const rawMap = {};
-      const BATCH_SIZE = 2;
-      const batches = [];
-      for (let i = 0; i < vehicleIds.length; i += BATCH_SIZE) {
-        batches.push(vehicleIds.slice(i, i + BATCH_SIZE));
-      }
 
-      const pMap = async (items, fn, concurrency = 3) => {
+      const pMap = async (items, fn, concurrency = 4) => {
         const results = [];
         for (let i = 0; i < items.length; i += concurrency) {
           const chunk = items.slice(i, i + concurrency);
@@ -842,11 +837,15 @@ class ReportRepository {
         return results;
       };
 
-      const batchResults = await pMap(batches, batch => db.query(query, [batch, startDate, endDate]), 3);
-      for (const res of batchResults) {
-        for (const row of res.rows) {
-          if (!rawMap[row.vehicle_id]) rawMap[row.vehicle_id] = [];
-          rawMap[row.vehicle_id].push({
+      const results = await pMap(vehicleIds, async vId => {
+        const res = await db.query(query, [vId, startDate, endDate]);
+        return { vId, rows: res.rows };
+      }, 4);
+
+      for (const { vId, rows } of results) {
+        if (!rawMap[vId]) rawMap[vId] = [];
+        for (const row of rows) {
+          rawMap[vId].push({
             status: row.status,
             start_time: row.start_time,
             end_time: row.end_time,
@@ -948,20 +947,14 @@ class ReportRepository {
     if (!vehicleIds || vehicleIds.length === 0) return {};
     try {
       const map = {};
-      const BATCH_SIZE = 2;
-      const batches = [];
-      for (let i = 0; i < vehicleIds.length; i += BATCH_SIZE) {
-        batches.push(vehicleIds.slice(i, i + BATCH_SIZE));
-      }
-
       const query = `
         SELECT vehicle_id, device_time, fuel, speed, ignition, lat, lng, odometer
         FROM gps_points
-        WHERE vehicle_id = ANY($1::uuid[]) AND device_time BETWEEN $2 AND $3
-        ORDER BY vehicle_id, device_time ASC
+        WHERE vehicle_id = $1 AND device_time BETWEEN $2 AND $3
+        ORDER BY device_time ASC
       `;
 
-      const pMap = async (items, fn, concurrency = 3) => {
+      const pMap = async (items, fn, concurrency = 4) => {
         const results = [];
         for (let i = 0; i < items.length; i += concurrency) {
           const chunk = items.slice(i, i + concurrency);
@@ -970,11 +963,14 @@ class ReportRepository {
         return results;
       };
 
-      const batchResults = await pMap(batches, batch => db.query(query, [batch, startDate, endDate]), 3);
-      for (const res of batchResults) {
-        for (const row of res.rows) {
-          if (!map[row.vehicle_id]) map[row.vehicle_id] = [];
-          map[row.vehicle_id].push(row);
+      const results = await pMap(vehicleIds, async vId => {
+        const res = await db.query(query, [vId, startDate, endDate]);
+        return { vId, rows: res.rows };
+      }, 4);
+
+      for (const { vId, rows } of results) {
+        if (rows.length > 0) {
+          map[vId] = rows;
         }
       }
       return map;
