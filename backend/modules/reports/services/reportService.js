@@ -352,7 +352,28 @@ class ReportService {
     const data = await reportRepository.getConsolidatedActivity(orgId, role, userId, startDate, endDate, vehicleId, groupId);
     if (!data || data.length === 0) return [];
 
-    const vehicleIds = data.map(d => d.vehicle_id);
+    const hasFuelCap = (v) => {
+      const meta = v.metadata || {};
+      return (
+        v.is_dispenser ||
+        v.is_generator ||
+        meta.hasFuel === true ||
+        meta.hasFuel === 'true' ||
+        meta.fuelCalibration != null ||
+        parseFloat(meta.fuelCapacity) > 0 ||
+        (v.vehicle_name && (
+          v.vehicle_name.toLowerCase().includes('fuel') ||
+          v.vehicle_name.toLowerCase().includes('sensor') ||
+          v.vehicle_name.toLowerCase().includes('tank') ||
+          v.vehicle_name.toLowerCase().includes('fmb') ||
+          v.vehicle_name.toLowerCase().includes('fkpcm')
+        ))
+      );
+    };
+
+    const targetVehicles = data.length <= 40 ? data : data.filter(hasFuelCap);
+    const vehicleIds = (targetVehicles.length > 0 ? targetVehicles : data).map(d => d.vehicle_id);
+
     const [intervalsMap, pointsMap] = await Promise.all([
       reportRepository.getVehicleIntervals(vehicleIds, startDate, endDate),
       reportRepository.getGpsPointsForVehicles(vehicleIds, startDate, endDate)
