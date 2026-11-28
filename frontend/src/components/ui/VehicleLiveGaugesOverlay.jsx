@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { hasPhysicalFuelSensor } from '../../utils/licenseUtils';
+import { getVehicleTanksInfo } from '../../utils/tankUtils';
 
 /**
  * VehicleLiveGaugesOverlay
@@ -81,19 +82,27 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {}, onClose }) => {
     return 0;
   }, [vehicle, meta]);
 
-  // 3. Current Fuel in Liters
+  // 3. Multi-Tank & Current Fuel Resolution
+  const tanksInfo = useMemo(() => getVehicleTanksInfo(vehicle), [vehicle]);
+  const hasTwoTanks = tanksInfo.hasTwoTanks;
+  const t1 = tanksInfo.tank1;
+  const t2 = tanksInfo.tank2;
+
   const rawFuel = vehicle.current_fuel !== undefined && vehicle.current_fuel !== null
     ? Number(vehicle.current_fuel)
     : (vehicle.fuel !== undefined && vehicle.fuel !== null ? Number(vehicle.fuel) : 0);
-  const currentFuel = Math.max(0, Math.round(rawFuel * 10) / 10);
+  const currentFuel = hasTwoTanks ? tanksInfo.totalFuel : Math.max(0, Math.round(rawFuel * 10) / 10);
 
   // Effective tank capacity ensures gauge handles overfill or calibration nuances
   const effectiveTankSize = useMemo(() => {
+    if (hasTwoTanks && tanksInfo.totalCapacity > 0) {
+      return Math.max(tanksInfo.totalCapacity, Math.ceil(currentFuel));
+    }
     if (tankCapacity > 0) {
       return Math.max(tankCapacity, Math.ceil(currentFuel));
     }
     return Math.ceil(currentFuel) || 100;
-  }, [tankCapacity, currentFuel]);
+  }, [tankCapacity, currentFuel, hasTwoTanks, tanksInfo]);
 
   // 4. Strict Fuel Sensor Check
   const hasFuelSensor = useMemo(() => {
@@ -102,6 +111,9 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {}, onClose }) => {
     // Explicit overrides
     if (vehicle.fuel_sensor === false || vehicle.has_fuel_sensor === false) return false;
     if (vehicle.fuel_sensor === true || vehicle.has_fuel_sensor === true) return true;
+
+    // Multi-tank configuration
+    if (hasTwoTanks) return true;
 
     // Any dynamic tank capacity configured > 0
     if (tankCapacity > 0) return true;
@@ -179,6 +191,15 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {}, onClose }) => {
   const totalArc = Math.PI * radius;
   const fuelRatio = effectiveTankSize > 0 ? Math.min(1, Math.max(0, currentFuel / effectiveTankSize)) : 0;
   const fuelDashOffset = totalArc * (1 - fuelRatio);
+
+  // Multi-Tank Progress Offsets
+  const t1EffectiveCap = (t1?.capacity > 0 ? Math.max(t1.capacity, Math.ceil(t1.litres)) : (Math.ceil(t1?.litres || 0) || 100));
+  const t1Ratio = t1EffectiveCap > 0 ? Math.min(1, Math.max(0, (t1?.litres || 0) / t1EffectiveCap)) : 0;
+  const t1DashOffset = totalArc * (1 - t1Ratio);
+
+  const t2EffectiveCap = (t2?.capacity > 0 ? Math.max(t2.capacity, Math.ceil(t2.litres)) : (Math.ceil(t2?.litres || 0) || 100));
+  const t2Ratio = t2EffectiveCap > 0 ? Math.min(1, Math.max(0, (t2?.litres || 0) / t2EffectiveCap)) : 0;
+  const t2DashOffset = totalArc * (1 - t2Ratio);
 
   // Small vertical / radial tick lines like a real speedometer dial
   const speedTicks = useMemo(() => {
@@ -360,96 +381,250 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {}, onClose }) => {
         </svg>
       </div>
 
-      {/* ─── 2. FUEL GAUGE (Only if vehicle HAS a fuel sensor) ─── */}
+      {/* ─── 2. FUEL GAUGE(S) (Only if vehicle HAS a fuel sensor) ─── */}
       {hasFuelSensor && (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            width: '165px',
-            borderLeft: '1px solid rgba(148, 163, 184, 0.35)',
-            paddingLeft: '12px'
-          }}
-        >
-          <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-            Tank Size - {displayTankSize} Ltr
-          </div>
+        hasTwoTanks ? (
+          <>
+            {/* TANK 1 GAUGE */}
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                width: '165px',
+                borderLeft: '1px solid rgba(148, 163, 184, 0.35)',
+                paddingLeft: '12px'
+              }}
+            >
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                Tank 1 Size - {t1?.capacity || t1EffectiveCap} Ltr
+              </div>
 
-          <div style={{ position: 'relative', width: '165px', height: '92px' }}>
-            <svg width="165" height="92" viewBox="0 0 165 92">
-              {/* Outer 1px Gray Arc Line */}
-              <path
-                d={`M ${cx - outerArcRadius},${cy} A ${outerArcRadius},${outerArcRadius} 0 0,1 ${cx + outerArcRadius},${cy}`}
-                fill="none"
-                stroke="#94A3B8"
-                strokeWidth="1"
-              />
+              <div style={{ position: 'relative', width: '165px', height: '92px' }}>
+                <svg width="165" height="92" viewBox="0 0 165 92">
+                  <path
+                    d={`M ${cx - outerArcRadius},${cy} A ${outerArcRadius},${outerArcRadius} 0 0,1 ${cx + outerArcRadius},${cy}`}
+                    fill="none"
+                    stroke="#94A3B8"
+                    strokeWidth="1"
+                  />
+                  <path
+                    d={`M ${cx - radius},${cy} A ${radius},${radius} 0 0,1 ${cx + radius},${cy}`}
+                    fill="none"
+                    stroke="rgba(203, 213, 225, 0.75)"
+                    strokeWidth={trackWidth}
+                  />
+                  <path
+                    d={`M ${cx - radius},${cy} A ${radius},${radius} 0 0,1 ${cx + radius},${cy}`}
+                    fill="none"
+                    stroke="#84CC16"
+                    strokeWidth={trackWidth}
+                    strokeDasharray={totalArc}
+                    strokeDashoffset={t1DashOffset}
+                    style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                  />
+                  <line
+                    x1={cx - outerArcRadius}
+                    y1={cy}
+                    x2={cx + outerArcRadius}
+                    y2={cy}
+                    stroke="#94A3B8"
+                    strokeWidth="1"
+                  />
+                  <text
+                    x={cx}
+                    y={cy - 8}
+                    textAnchor="middle"
+                    fontSize="11.5"
+                    fontWeight="700"
+                    fill="#0F172A"
+                  >
+                    Tank 1 - {Math.round(t1?.litres || 0)} Ltr
+                  </text>
+                </svg>
+              </div>
 
-              {/* Background Gray Arc */}
-              <path
-                d={`M ${cx - radius},${cy} A ${radius},${radius} 0 0,1 ${cx + radius},${cy}`}
-                fill="none"
-                stroke="rgba(203, 213, 225, 0.75)"
-                strokeWidth={trackWidth}
-              />
-              {/* Green Filled Progress Arc */}
-              <path
-                d={`M ${cx - radius},${cy} A ${radius},${radius} 0 0,1 ${cx + radius},${cy}`}
-                fill="none"
-                stroke="#84CC16"
-                strokeWidth={trackWidth}
-                strokeDasharray={totalArc}
-                strokeDashoffset={fuelDashOffset}
-                style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}
-              />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '-2px', width: '100%' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '9px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
+                    Level
+                  </div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#0F172A', marginTop: '1px' }}>
+                    {t1?.percentage || 0}%
+                  </div>
+                </div>
+              </div>
+            </div>
 
-              {/* Horizontal Baseline */}
-              <line
-                x1={cx - outerArcRadius}
-                y1={cy}
-                x2={cx + outerArcRadius}
-                y2={cy}
-                stroke="#94A3B8"
-                strokeWidth="1"
-              />
+            {/* TANK 2 GAUGE */}
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                width: '165px',
+                borderLeft: '1px solid rgba(148, 163, 184, 0.35)',
+                paddingLeft: '12px'
+              }}
+            >
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                Tank 2 Size - {t2?.capacity || t2EffectiveCap} Ltr
+              </div>
 
-              {/* Centered Fuel Liters Text inside Gauge */}
-              <text
-                x={cx}
-                y={cy - 8}
-                textAnchor="middle"
-                fontSize={isManualFuel ? "10" : "11.5"}
-                fontWeight="700"
-                fill="#0F172A"
-              >
-                {isManualFuel ? 'Non-Sensor Fuel' : 'Fuel'} - {Math.round(currentFuel)} Ltr
-              </text>
-            </svg>
-          </div>
+              <div style={{ position: 'relative', width: '165px', height: '92px' }}>
+                <svg width="165" height="92" viewBox="0 0 165 92">
+                  <path
+                    d={`M ${cx - outerArcRadius},${cy} A ${outerArcRadius},${outerArcRadius} 0 0,1 ${cx + outerArcRadius},${cy}`}
+                    fill="none"
+                    stroke="#94A3B8"
+                    strokeWidth="1"
+                  />
+                  <path
+                    d={`M ${cx - radius},${cy} A ${radius},${radius} 0 0,1 ${cx + radius},${cy}`}
+                    fill="none"
+                    stroke="rgba(203, 213, 225, 0.75)"
+                    strokeWidth={trackWidth}
+                  />
+                  <path
+                    d={`M ${cx - radius},${cy} A ${radius},${radius} 0 0,1 ${cx + radius},${cy}`}
+                    fill="none"
+                    stroke="#84CC16"
+                    strokeWidth={trackWidth}
+                    strokeDasharray={totalArc}
+                    strokeDashoffset={t2DashOffset}
+                    style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                  />
+                  <line
+                    x1={cx - outerArcRadius}
+                    y1={cy}
+                    x2={cx + outerArcRadius}
+                    y2={cy}
+                    stroke="#94A3B8"
+                    strokeWidth="1"
+                  />
+                  <text
+                    x={cx}
+                    y={cy - 8}
+                    textAnchor="middle"
+                    fontSize="11.5"
+                    fontWeight="700"
+                    fill="#0F172A"
+                  >
+                    Tank 2 - {Math.round(t2?.litres || 0)} Ltr
+                  </text>
+                </svg>
+              </div>
 
-          {/* Metrics below gauge */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isManualFuel ? '12px' : '0px', marginTop: '-2px', width: '100%' }}>
-            {isManualFuel && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '-2px', width: '100%' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '9px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
+                    Level
+                  </div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#0F172A', marginTop: '1px' }}>
+                    {t2?.percentage || 0}%
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '9px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
+                    Range
+                  </div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#0F172A', marginTop: '1px' }}>
+                    {estimatedKm} Km
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              width: '165px',
+              borderLeft: '1px solid rgba(148, 163, 184, 0.35)',
+              paddingLeft: '12px'
+            }}
+          >
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+              Tank Size - {displayTankSize} Ltr
+            </div>
+
+            <div style={{ position: 'relative', width: '165px', height: '92px' }}>
+              <svg width="165" height="92" viewBox="0 0 165 92">
+                {/* Outer 1px Gray Arc Line */}
+                <path
+                  d={`M ${cx - outerArcRadius},${cy} A ${outerArcRadius},${outerArcRadius} 0 0,1 ${cx + outerArcRadius},${cy}`}
+                  fill="none"
+                  stroke="#94A3B8"
+                  strokeWidth="1"
+                />
+
+                {/* Background Gray Arc */}
+                <path
+                  d={`M ${cx - radius},${cy} A ${radius},${radius} 0 0,1 ${cx + radius},${cy}`}
+                  fill="none"
+                  stroke="rgba(203, 213, 225, 0.75)"
+                  strokeWidth={trackWidth}
+                />
+                {/* Green Filled Progress Arc */}
+                <path
+                  d={`M ${cx - radius},${cy} A ${radius},${radius} 0 0,1 ${cx + radius},${cy}`}
+                  fill="none"
+                  stroke="#84CC16"
+                  strokeWidth={trackWidth}
+                  strokeDasharray={totalArc}
+                  strokeDashoffset={fuelDashOffset}
+                  style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                />
+
+                {/* Horizontal Baseline */}
+                <line
+                  x1={cx - outerArcRadius}
+                  y1={cy}
+                  x2={cx + outerArcRadius}
+                  y2={cy}
+                  stroke="#94A3B8"
+                  strokeWidth="1"
+                />
+
+                {/* Centered Fuel Liters Text inside Gauge */}
+                <text
+                  x={cx}
+                  y={cy - 8}
+                  textAnchor="middle"
+                  fontSize={isManualFuel ? "10" : "11.5"}
+                  fontWeight="700"
+                  fill="#0F172A"
+                >
+                  {isManualFuel ? 'Non-Sensor Fuel' : 'Fuel'} - {Math.round(currentFuel)} Ltr
+                </text>
+              </svg>
+            </div>
+
+            {/* Metrics below gauge */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isManualFuel ? '12px' : '0px', marginTop: '-2px', width: '100%' }}>
+              {isManualFuel && (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '9px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
+                    Fuel Used
+                  </div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#EA580C', marginTop: '1px' }}>
+                    {fuelUsed.toFixed(1)} L
+                  </div>
+                </div>
+              )}
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '9px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
-                  Fuel Used
+                  Range
                 </div>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#EA580C', marginTop: '1px' }}>
-                  {fuelUsed.toFixed(1)} L
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#0F172A', marginTop: '1px' }}>
+                  {estimatedKm} Km
                 </div>
-              </div>
-            )}
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '9px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
-                Range
-              </div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#0F172A', marginTop: '1px' }}>
-                {estimatedKm} Km
               </div>
             </div>
           </div>
-        </div>
+        )
       )}
     </div>
   );

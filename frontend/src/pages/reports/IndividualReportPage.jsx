@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import CustomDatePicker from '../../components/ui/CustomDatePicker';
-import { formatLocalTime } from '../../utils/dateUtils';
-import { Search, Loader2, Calendar, FileSpreadsheet, FileText, Download, Play } from 'lucide-react';
+import { Loader2, Calendar, FileSpreadsheet, FileText, Download, Play } from 'lucide-react';
 import { exportToExcel, exportToPDF, exportToCSV } from '../../utils/exportUtils';
 import axiosInstance from '../../api/axios';
 import * as vehicleApi from '../../api/vehicleApi';
@@ -15,20 +13,42 @@ const getTodayDateStr = () => {
   return `${y}-${m}-${d}`;
 };
 
-const formatSecondsToHM = (seconds) => {
-  if (!seconds || isNaN(seconds)) return '0 min';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+const formatDurationHMS = (seconds) => {
+  if (!seconds || isNaN(seconds) || seconds <= 0) return '00:00:00';
+  const sec = Math.round(Number(seconds));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
+
+const formatLegacyDateTime = (dateVal) => {
+  if (!dateVal) return '-';
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return '-';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+  return `${hours}:${minutes}:${seconds} ${day}-${month}-${year}`;
+};
+
+const formatHeaderDate = (dStr) => {
+  if (!dStr) return '';
+  const parts = dStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
+  return dStr;
 };
 
 const IndividualReportPage = () => {
   const todayStr = getTodayDateStr();
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
-  const [searchVehicle, setSearchVehicle] = useState('');
-  const [selectedGroup, setSelectedGroup] = useState('All');
+  const [selectedGroupId, setSelectedGroupId] = useState(null);
 
   const [startDate, setStartDate] = useState(todayStr);
   const [endDate, setEndDate] = useState(todayStr);
@@ -50,12 +70,23 @@ const IndividualReportPage = () => {
   }, []);
 
   // Fetch report data
-  const handleGenerate = useCallback(async (sDate, eDate, vId) => {
+  const handleGenerate = useCallback(async (sDate, eDate, vId, explicitVIds) => {
     const curStart = sDate || startDate;
     const curEnd = eDate || endDate;
-    const curVId = vId || selectedVehicleId;
 
-    if (!curStart || !curEnd || !curVId) return;
+    let targetIds = [];
+    if (Array.isArray(explicitVIds) && explicitVIds.length > 0) {
+      targetIds = explicitVIds;
+    } else {
+      const curVId = vId !== undefined ? vId : selectedVehicleId;
+      if (curVId === 'ALL') {
+        targetIds = vehicles.map(v => v.id);
+      } else if (curVId) {
+        targetIds = [curVId];
+      }
+    }
+
+    if (!curStart || !curEnd || targetIds.length === 0) return;
     setLoading(true);
 
     try {
@@ -67,7 +98,7 @@ const IndividualReportPage = () => {
       const params = new URLSearchParams();
       params.append('startDate', start.toISOString());
       params.append('endDate', end.toISOString());
-      params.append('vehicleId', curVId);
+      params.append('vehicleIds', targetIds.join(','));
 
       const res = await axiosInstance.get(`/api/reports/individual?${params.toString()}`);
       if (res.data?.success) {
@@ -81,52 +112,26 @@ const IndividualReportPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, selectedVehicleId]);
+  }, [startDate, endDate, selectedVehicleId, vehicles]);
 
   // Initial fetch on vehicle load
   useEffect(() => {
-    if (selectedVehicleId) {
+    if (selectedVehicleId && vehicles.length > 0 && !data && !loading) {
       handleGenerate(startDate, endDate, selectedVehicleId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedVehicleId]);
+  }, [selectedVehicleId, vehicles.length]);
 
-  // Selected vehicle object
-  const selectedVehicle = useMemo(() => {
-    return vehicles.find(v => String(v.id) === String(selectedVehicleId)) || vehicles[0] || null;
-  }, [vehicles, selectedVehicleId]);
-
-  // Group options
-  const groupOptions = useMemo(() => {
-    const set = new Set();
-    vehicles.forEach(v => {
-      const g = v.group_name || v.group?.name;
-      if (g) set.add(g);
-    });
-    return ['All', ...Array.from(set)];
-  }, [vehicles]);
-
-  // Filtered vehicles
-  const filteredVehicles = useMemo(() => {
-    return vehicles.filter(v => {
-      const g = v.group_name || v.group?.name || '';
-      if (selectedGroup !== 'All' && g !== selectedGroup) return false;
-      if (searchVehicle.trim()) {
-        const query = searchVehicle.toLowerCase();
-        const nameMatch = (v.name || '').toLowerCase().includes(query);
-        const plateMatch = (v.plate || '').toLowerCase().includes(query);
-        return nameMatch || plateMatch;
-      }
-      return true;
-    });
-  }, [vehicles, selectedGroup, searchVehicle]);
-
-  // Quick Presets
+  // Quick Date Range Presets
   const setQuickRange = (preset) => {
     setActivePreset(preset);
     const now = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    const toISO = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const toISO = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
 
     let sDate = todayStr;
     let eDate = todayStr;
@@ -171,20 +176,44 @@ const IndividualReportPage = () => {
     handleGenerate(sDate, eDate, selectedVehicleId);
   };
 
-  const columns = ['Vehicle Name', 'Vehicle Plate', 'Total Distance (km)', 'Running Time', 'Idle Time', 'Trip Count', 'Stoppages', 'Overspeeding'];
+  // Resolved vehicle timeline reports array
+  const vehicleReports = useMemo(() => {
+    if (!data) return [];
+    if (Array.isArray(data.vehicles) && data.vehicles.length > 0) {
+      return data.vehicles;
+    }
+    if (data.vehicle) {
+      return [{
+        vehicle: data.vehicle,
+        summary: data.summary || {},
+        intervals: data.intervals || []
+      }];
+    }
+    return [];
+  }, [data]);
+
+  const columns = ['Vehicle Name', 'Status', 'Start', 'End', 'Duration (HH:MM:SS)', 'Length', 'Location Details', 'Speed Hike', 'Speed Avg'];
 
   const getExportData = () => {
-    if (!data) return [];
-    return [{
-      'Vehicle Name': data.vehicle?.name || selectedVehicle?.name || '-',
-      'Vehicle Plate': data.vehicle?.plate || selectedVehicle?.plate || '-',
-      'Total Distance (km)': data.activity?.distance_travelled || 0,
-      'Running Time': formatSecondsToHM(data.activity?.running_seconds || 0),
-      'Idle Time': formatSecondsToHM(data.activity?.idle_seconds || 0),
-      'Trip Count': data.summary?.trip_count || 0,
-      'Stoppages': data.summary?.stoppage_count || 0,
-      'Overspeeding': data.summary?.overspeeding_count || 0
-    }];
+    if (!vehicleReports || vehicleReports.length === 0) return [];
+    const rows = [];
+    vehicleReports.forEach(vr => {
+      const vName = vr.vehicle?.name || vr.vehicle?.plate || '-';
+      (vr.intervals || []).forEach(it => {
+        rows.push({
+          'Vehicle Name': vName,
+          'Status': it.status,
+          'Start': formatLegacyDateTime(it.start_time),
+          'End': formatLegacyDateTime(it.end_time),
+          'Duration (HH:MM:SS)': formatDurationHMS(it.duration_seconds),
+          'Length': it.status === 'Moving' ? `${it.distance || 0} Km` : '-',
+          'Location Details': it.address || (it.start_lat ? `${Number(it.start_lat).toFixed(4)}, ${Number(it.start_lng).toFixed(4)}` : '-'),
+          'Speed Hike': it.status === 'Moving' ? `${it.max_speed || 0} Km` : '-',
+          'Speed Avg': it.status === 'Moving' ? `${it.avg_speed || it.max_speed || 0} Km` : '-'
+        });
+      });
+    });
+    return rows;
   };
 
   return (
@@ -202,14 +231,23 @@ const IndividualReportPage = () => {
       <ReportGroupVehicleSidebar
         vehicles={vehicles}
         selectedVehicleId={selectedVehicleId}
+        selectedGroupId={selectedGroupId}
+        showAllOption={true}
         onSelectVehicle={(id) => {
           setSelectedVehicleId(id);
+          setSelectedGroupId(null);
           handleGenerate(startDate, endDate, id);
+        }}
+        onSelectGroup={(grpId, grpVehicles) => {
+          setSelectedGroupId(grpId);
+          setSelectedVehicleId('ALL');
+          const ids = (grpVehicles || []).map(v => v.id);
+          handleGenerate(startDate, endDate, null, ids);
         }}
         width="175px"
       />
 
-      {/* ═══════════ RIGHT: EXCEL WORKSPACE ═══════════ */}
+      {/* ═══════════ RIGHT: REPORT WORKSPACE ═══════════ */}
       <div style={{
         flex: 1,
         minWidth: 0,
@@ -218,7 +256,7 @@ const IndividualReportPage = () => {
         background: '#FFFFFF',
         padding: '10px 14px',
         overflow: 'hidden',
-        gap: '6px'
+        gap: '8px'
       }}>
 
         {/* ── 1. Top Controls Bar: Dates + Generate + Exports ── */}
@@ -280,7 +318,7 @@ const IndividualReportPage = () => {
             </button>
           </div>
 
-          {/* Export Icons */}
+          {/* Export Buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button
               onClick={() => exportToExcel(getExportData(), 'individual_report')}
@@ -387,133 +425,182 @@ const IndividualReportPage = () => {
           })}
         </div>
 
-        {/* ── 3. Executive Metadata Banner (Excel Sheet Format) ── */}
-        <div style={{
-          border: '1px solid #D1FAE5',
-          background: '#F7FDF9',
-          overflow: 'hidden'
-        }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '11px', lineHeight: '1.25' }}>
-            <tbody>
-              {/* Row 1 */}
-              <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
-                <td style={{ width: '14%', padding: '5px 8px', fontWeight: 800, color: '#064E3B', background: '#ECFDF5', borderRight: '1px solid #E2E8F0', textTransform: 'uppercase', fontSize: '10.5px', letterSpacing: '0.03em' }}>
-                  Vehicle Group
-                </td>
-                <td style={{ width: '36%', padding: '5px 8px', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #E2E8F0' }}>
-                  {selectedVehicle?.group_name || selectedVehicle?.group?.name || 'Default Group'}
-                </td>
-                <td style={{ width: '14%', padding: '5px 8px', fontWeight: 800, color: '#064E3B', background: '#ECFDF5', borderRight: '1px solid #E2E8F0', textTransform: 'uppercase', fontSize: '10.5px', letterSpacing: '0.03em' }}>
-                  Vehicle Name
-                </td>
-                <td style={{ width: '36%', padding: '5px 8px', fontWeight: 700, color: '#0F172A' }}>
-                  {selectedVehicle?.name || selectedVehicle?.plate || '-'}
-                </td>
-              </tr>
-              {/* Row 2 */}
-              <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
-                <td style={{ padding: '5px 8px', fontWeight: 800, color: '#064E3B', background: '#ECFDF5', borderRight: '1px solid #E2E8F0', textTransform: 'uppercase', fontSize: '10.5px', letterSpacing: '0.03em' }}>
-                  Vehicle Id
-                </td>
-                <td style={{ padding: '5px 8px', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #E2E8F0', fontFamily: 'monospace' }}>
-                  {selectedVehicle?.plate || selectedVehicle?.imei || selectedVehicle?.id || '-'}
-                </td>
-                <td style={{ padding: '5px 8px', fontWeight: 800, color: '#064E3B', background: '#ECFDF5', borderRight: '1px solid #E2E8F0', textTransform: 'uppercase', fontSize: '10.5px', letterSpacing: '0.03em' }}>
-                  Total Distance
-                </td>
-                <td style={{ padding: '5px 8px', fontWeight: 800, color: '#059669' }}>
-                  {data?.activity?.distance_travelled || 0} km
-                </td>
-              </tr>
-              {/* Row 3 */}
-              <tr>
-                <td style={{ padding: '5px 8px', fontWeight: 800, color: '#064E3B', background: '#ECFDF5', borderRight: '1px solid #E2E8F0', textTransform: 'uppercase', fontSize: '10.5px', letterSpacing: '0.03em' }}>
-                  From Date
-                </td>
-                <td style={{ padding: '5px 8px', color: '#0F172A', borderRight: '1px solid #E2E8F0', fontWeight: 600 }}>
-                  {startDate}
-                </td>
-                <td style={{ padding: '5px 8px', fontWeight: 800, color: '#064E3B', background: '#ECFDF5', borderRight: '1px solid #E2E8F0', textTransform: 'uppercase', fontSize: '10.5px', letterSpacing: '0.03em' }}>
-                  To Date
-                </td>
-                <td style={{ padding: '5px 8px', color: '#0F172A', fontWeight: 600 }}>
-                  {endDate}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* ── 4. Excel Format Data Table ── */}
+        {/* ── 3. Main Data Container (Stacked Vehicle Tables) ── */}
         <div style={{
           flex: 1,
           border: '1px solid #CBD5E1',
           overflow: 'auto',
-          background: '#FFFFFF'
+          background: '#F8FAFC',
+          padding: '8px'
         }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', minWidth: '700px' }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
-              <tr style={{ background: '#064E3B', borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
-                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', width: '45px', textAlign: 'center' }}>#</th>
-                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center' }}>Vehicle Name</th>
-                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center' }}>Total Distance</th>
-                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center' }}>Running Time</th>
-                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center' }}>Idle Time</th>
-                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center' }}>Trips Count</th>
-                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center' }}>Stoppages</th>
-                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center' }}>Overspeeding</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={8} style={{ padding: '40px', textAlign: 'center', border: '1px solid #CBD5E1' }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#059669', fontSize: '12px', fontWeight: 600 }}>
-                      <Loader2 size={16} className="animate-spin" />
-                      <span>Loading individual vehicle records...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : !data ? (
-                <tr>
-                  <td colSpan={8} style={{ padding: '30px', textAlign: 'center', color: '#64748B', border: '1px solid #CBD5E1', fontSize: '12px' }}>
-                    No vehicle telemetry summary found for the selected period.
-                  </td>
-                </tr>
-              ) : (
-                <tr
-                  style={{ background: '#FFFFFF', transition: 'background 0.15s ease' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#ECFDF5'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#FFFFFF'}
+          {loading ? (
+            <div style={{ padding: '60px', textAlign: 'center' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#059669', fontSize: '13px', fontWeight: 600 }}>
+                <Loader2 size={18} className="animate-spin" />
+                <span>Generating vehicle timeline report...</span>
+              </div>
+            </div>
+          ) : vehicleReports.length === 0 ? (
+            <div style={{ padding: '60px', textAlign: 'center', color: '#64748B', fontSize: '12px' }}>
+              No vehicle timeline records found for the selected period.
+            </div>
+          ) : (
+            vehicleReports.map((vRep, vIdx) => {
+              const summary = vRep.summary || {};
+              const intervals = vRep.intervals || [];
+              const vName = vRep.vehicle?.name || vRep.vehicle?.plate || `Vehicle ${vIdx + 1}`;
+
+              return (
+                <div
+                  key={vRep.vehicle?.id || vIdx}
+                  style={{
+                    marginBottom: '16px',
+                    border: '1px solid #B6D4FE',
+                    borderRadius: '4px',
+                    overflow: 'hidden',
+                    background: '#FFFFFF',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                  }}
                 >
-                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 600, color: '#475569' }}>
-                    1
-                  </td>
-                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 700, color: '#1E293B' }}>
-                    {data.vehicle?.name || selectedVehicle?.name || '-'}
-                  </td>
-                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 700, color: '#059669' }}>
-                    {data.activity?.distance_travelled || 0} km
-                  </td>
-                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 600, color: '#2563EB' }}>
-                    {formatSecondsToHM(data.activity?.running_seconds || 0)}
-                  </td>
-                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 600, color: '#D97706' }}>
-                    {formatSecondsToHM(data.activity?.idle_seconds || 0)}
-                  </td>
-                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 700, color: '#1E293B' }}>
-                    {data.summary?.trip_count || 0}
-                  </td>
-                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 700, color: '#DC2626' }}>
-                    {data.summary?.stoppage_count || 0}
-                  </td>
-                  <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 700, color: (data.summary?.overspeeding_count || 0) > 0 ? '#DC2626' : '#475569' }}>
-                    {data.summary?.overspeeding_count || 0}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                  {/* Executive Blue Summary Banner */}
+                  <div style={{
+                    background: '#CFE2FF',
+                    borderBottom: '1px solid #9EC5FE',
+                    padding: '6px 12px',
+                    fontSize: '11.5px',
+                    lineHeight: '1.4'
+                  }}>
+                    {/* Top Row: Vehicle Name, Date Range, Trip Distance */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                      color: '#084298',
+                      paddingBottom: '3px',
+                      borderBottom: '1px solid rgba(13, 110, 253, 0.2)'
+                    }}>
+                      <div style={{ fontWeight: 800 }}>
+                        Vehicle Name : <span style={{ color: '#052c65' }}>{vName}</span>
+                      </div>
+                      <div style={{ fontWeight: 600 }}>
+                        From : 12:00 AM {formatHeaderDate(startDate)} - To: 11:59 PM {formatHeaderDate(endDate)}
+                      </div>
+                      <div style={{ fontWeight: 700 }}>
+                        Trip Distance : <span style={{ color: '#052c65' }}>{summary.tripDistance || 0}</span>
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Moving, Parked, Idle, Speed Hike, Avg Speed */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '12px',
+                      color: '#084298',
+                      paddingTop: '3px',
+                      fontSize: '11px'
+                    }}>
+                      <div>
+                        Moving : <strong style={{ color: '#052c65' }}>{formatDurationHMS(summary.movingSeconds)}</strong>
+                      </div>
+                      <div>
+                        Parked : <strong style={{ color: '#052c65' }}>{formatDurationHMS(summary.parkedSeconds)}</strong>
+                      </div>
+                      <div>
+                        Idle : <strong style={{ color: '#052c65' }}>{formatDurationHMS(summary.idleSeconds)}</strong>
+                      </div>
+                      <div>
+                        Speed Hike : <strong style={{ color: '#052c65' }}>{summary.speedHike || 0} Km</strong>
+                      </div>
+                      <div>
+                        Avg Speed : <strong style={{ color: '#052c65' }}>{summary.avgSpeed || 0} Km</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Interval Timeline Table */}
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'center' }}>
+                      <thead>
+                        <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #CBD5E1', color: '#475569', fontWeight: 700 }}>
+                          <th style={{ padding: '6px 6px', border: '1px solid #E2E8F0', width: '35px' }}>#</th>
+                          <th style={{ padding: '6px 8px', border: '1px solid #E2E8F0', width: '75px' }}>Status</th>
+                          <th style={{ padding: '6px 8px', border: '1px solid #E2E8F0', width: '145px' }}>Start</th>
+                          <th style={{ padding: '6px 8px', border: '1px solid #E2E8F0', width: '145px' }}>End</th>
+                          <th style={{ padding: '6px 8px', border: '1px solid #E2E8F0', width: '130px' }}>Duration (HH:MM:SS)</th>
+                          <th style={{ padding: '6px 8px', border: '1px solid #E2E8F0', width: '75px' }}>Length</th>
+                          <th style={{ padding: '6px 8px', border: '1px solid #E2E8F0', textAlign: 'left' }}>Location Details</th>
+                          <th style={{ padding: '6px 8px', border: '1px solid #E2E8F0', width: '80px' }}>Speed Hike</th>
+                          <th style={{ padding: '6px 8px', border: '1px solid #E2E8F0', width: '80px' }}>Speed Avg</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {intervals.length === 0 ? (
+                          <tr>
+                            <td colSpan={9} style={{ padding: '16px', color: '#64748B', border: '1px solid #E2E8F0' }}>
+                              No activity recorded for this vehicle.
+                            </td>
+                          </tr>
+                        ) : (
+                          intervals.map((it, itIdx) => {
+                            const isMoving = it.status === 'Moving';
+                            const isIdle = it.status === 'Idle';
+                            const isParked = it.status === 'Parked';
+                            const isNoData = it.status === 'No Data';
+
+                            const statusColor = isMoving ? '#15803D' : (isIdle ? '#B45309' : (isParked ? '#1D4ED8' : '#B91C1C'));
+
+                            return (
+                              <tr
+                                key={itIdx}
+                                style={{
+                                  background: itIdx % 2 === 0 ? '#FFFFFF' : '#FAFAFA',
+                                  transition: 'background 0.1s ease'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#F0F9FF'}
+                                onMouseLeave={e => e.currentTarget.style.background = itIdx % 2 === 0 ? '#FFFFFF' : '#FAFAFA'}
+                              >
+                                <td style={{ padding: '4px 6px', border: '1px solid #E2E8F0', color: '#64748B' }}>
+                                  {itIdx + 1}
+                                </td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #E2E8F0', fontWeight: 700, color: statusColor }}>
+                                  {it.status}
+                                </td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #E2E8F0', fontFamily: 'monospace', fontSize: '10.5px' }}>
+                                  {formatLegacyDateTime(it.start_time)}
+                                </td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #E2E8F0', fontFamily: 'monospace', fontSize: '10.5px' }}>
+                                  {formatLegacyDateTime(it.end_time)}
+                                </td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #E2E8F0', fontWeight: 600 }}>
+                                  {formatDurationHMS(it.duration_seconds)}
+                                </td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #E2E8F0' }}>
+                                  {isMoving ? `${it.distance || 0} Km` : (it.distance > 0 ? `${it.distance} Km` : '')}
+                                </td>
+                                <td style={{ padding: '4px 8px', border: '1px solid #E2E8F0', textAlign: 'left', color: '#1E293B', fontSize: '10.5px', lineHeight: '1.3' }}>
+                                  {it.address || (it.start_lat ? `${Number(it.start_lat).toFixed(4)}, ${Number(it.start_lng).toFixed(4)}` : '-')}
+                                </td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #E2E8F0' }}>
+                                  {isMoving ? `${it.max_speed || 0} Km` : ''}
+                                </td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #E2E8F0' }}>
+                                  {isMoving ? `${it.avg_speed || it.max_speed || 0} Km` : ''}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
       </div>

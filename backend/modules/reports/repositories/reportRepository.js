@@ -660,6 +660,115 @@ class ReportRepository {
   }
 
   /**
+   * Individual Vehicle Timeline Intervals
+   * Chronological sequence of Moving, Idle, Parked, and No Data states.
+   */
+  async getTimelineIntervals(vehicleId, startDate, endDate) {
+    const query = `
+      WITH raw AS (
+          SELECT
+              lat, lng, speed, ignition, device_time,
+              LAG(lat)         OVER (ORDER BY device_time) AS prev_lat,
+              LAG(lng)         OVER (ORDER BY device_time) AS prev_lng,
+              LAG(device_time) OVER (ORDER BY device_time) AS prev_time,
+              CASE
+                  WHEN COALESCE(speed, 0) > 3.0 THEN 'Moving'
+                  WHEN COALESCE(speed, 0) <= 3.0 AND ignition = true THEN 'Idle'
+                  ELSE 'Parked'
+              END AS status
+          FROM gps_points
+          WHERE vehicle_id = $1
+            AND device_time BETWEEN $2 AND $3
+      ),
+      with_dist AS (
+          SELECT *,
+              ${HAVERSINE_SEGMENT_KM} AS segment_km
+          FROM raw
+      ),
+      state_changes AS (
+          SELECT *,
+              CASE WHEN status != LAG(status) OVER (ORDER BY device_time)
+                        OR LAG(status) OVER (ORDER BY device_time) IS NULL
+                        OR EXTRACT(EPOCH FROM (device_time - LAG(device_time) OVER (ORDER BY device_time))) > 1800
+              THEN 1 ELSE 0 END AS is_change
+          FROM with_dist
+      ),
+      islands AS (
+          SELECT *,
+              SUM(is_change) OVER (ORDER BY device_time) AS event_id
+          FROM state_changes
+      )
+      SELECT
+          status,
+          MIN(device_time)                                           AS start_time,
+          MAX(device_time)                                           AS end_time,
+          (ARRAY_AGG(lat ORDER BY device_time ASC))[1]              AS start_lat,
+          (ARRAY_AGG(lng ORDER BY device_time ASC))[1]              AS start_lng,
+          (ARRAY_AGG(lat ORDER BY device_time DESC))[1]             AS end_lat,
+          (ARRAY_AGG(lng ORDER BY device_time DESC))[1]             AS end_lng,
+          MAX(COALESCE(speed, 0))                                    AS max_speed,
+          ROUND(AVG(NULLIF(speed, 0))::numeric, 1)                  AS avg_speed,
+          ROUND(SUM(segment_km)::numeric, 2)                        AS distance,
+          EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time)))  AS duration_seconds
+      FROM islands
+      GROUP BY event_id, status
+      ORDER BY start_time;
+    `;
+    const res = await db.query(query, [vehicleId, startDate, endDate]);
+    const rawEvents = res.rows || [];
+    if (rawEvents.length === 0) return [];
+
+    // Post-process to insert 'No Data' gaps > 1800s and ensure clean duration
+    const finalIntervals = [];
+    for (let i = 0; i < rawEvents.length; i++) {
+      const cur = rawEvents[i];
+      if (finalIntervals.length > 0) {
+        const prev = finalIntervals[finalIntervals.length - 1];
+        const gapSec = (new Date(cur.start_time) - new Date(prev.end_time)) / 1000;
+        if (gapSec > 1800) {
+          finalIntervals.push({
+            status: 'No Data',
+            start_time: prev.end_time,
+            end_time: cur.start_time,
+            start_lat: prev.end_lat || prev.start_lat,
+            start_lng: prev.end_lng || prev.start_lng,
+            end_lat: cur.start_lat,
+            end_lng: cur.start_lng,
+            max_speed: 0,
+            avg_speed: 0,
+            distance: 0,
+            duration_seconds: Math.round(gapSec)
+          });
+        }
+      }
+
+      let durSec = Math.round(parseFloat(cur.duration_seconds) || 0);
+      if (durSec <= 0 && i < rawEvents.length - 1) {
+        const diffToNext = (new Date(rawEvents[i + 1].start_time) - new Date(cur.start_time)) / 1000;
+        durSec = Math.max(1, Math.min(Math.round(diffToNext), 60));
+      } else if (durSec <= 0) {
+        durSec = 1;
+      }
+
+      finalIntervals.push({
+        status: cur.status,
+        start_time: cur.start_time,
+        end_time: cur.end_time,
+        start_lat: cur.start_lat,
+        start_lng: cur.start_lng,
+        end_lat: cur.end_lat,
+        end_lng: cur.end_lng,
+        max_speed: Math.round(parseFloat(cur.max_speed) || 0),
+        avg_speed: Math.round(parseFloat(cur.avg_speed) || 0),
+        distance: Math.round((parseFloat(cur.distance) || 0) * 100) / 100,
+        duration_seconds: durSec
+      });
+    }
+
+    return finalIntervals;
+  }
+
+  /**
    * Consolidated Report (Org-level Activity with Haversine distance)
    *
    * FIX 1: LEFT JOIN from vehicles so every vehicle in the org appears,

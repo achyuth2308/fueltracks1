@@ -16,6 +16,7 @@ import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
 import { getVehicleStatus, getVehicleType, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
 import { hasVehicleFuelCapability } from '../../utils/licenseUtils';
+import { getVehicleTanksInfo } from '../../utils/tankUtils';
 import * as vehicleApi from '../../api/vehicleApi';
 import ManualFuelEntryModal from '../../components/fuel/ManualFuelEntryModal';
 
@@ -480,33 +481,67 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             <span style={{ fontWeight: 600, color: '#334155', fontSize: '9.5px' }}>
               {v.is_online ? `${Math.round(v.current_speed || 0)} km/h` : '0 km/h'}
             </span>
-            {vHasFuel && (
-              (v.current_fuel !== undefined && v.current_fuel !== null && Number(v.current_fuel) >= 0) ? (
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedFuelVehicle(v);
-                    setIsFuelEntryOpen(true);
-                  }}
-                  title="Click to Log Fuel Transaction / Refill"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '2px',
-                    color: '#0284C7',
-                    fontWeight: 600,
-                    fontSize: '9.5px',
-                    cursor: 'pointer',
-                    borderRadius: '3px',
-                    padding: '0 2px'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = '#EA580C'}
-                  onMouseLeave={e => e.currentTarget.style.color = '#0284C7'}
-                >
-                  <Fuel size={8} />
-                  {Math.round(Number(v.current_fuel))}L
-                </span>
-              ) : (
+            {vHasFuel && (() => {
+              const vTanks = getVehicleTanksInfo(v);
+              if (vTanks.hasTwoTanks) {
+                return (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedFuelVehicle(v);
+                      setIsFuelEntryOpen(true);
+                    }}
+                    title={`Click to Log Fuel Transaction / Refill (T1: ${Math.round(vTanks.tank1.litres)}L, T2: ${Math.round(vTanks.tank2.litres)}L)`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '2px',
+                      color: '#0284C7',
+                      fontWeight: 600,
+                      fontSize: '9px',
+                      cursor: 'pointer',
+                      borderRadius: '3px',
+                      padding: '0 2px'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#EA580C'}
+                    onMouseLeave={e => e.currentTarget.style.color = '#0284C7'}
+                  >
+                    <Fuel size={8} />
+                    T1: {Math.round(vTanks.tank1.litres)}L | T2: {Math.round(vTanks.tank2.litres)}L
+                  </span>
+                );
+              }
+
+              if (v.current_fuel !== undefined && v.current_fuel !== null && Number(v.current_fuel) >= 0) {
+                return (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedFuelVehicle(v);
+                      setIsFuelEntryOpen(true);
+                    }}
+                    title="Click to Log Fuel Transaction / Refill"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '2px',
+                      color: '#0284C7',
+                      fontWeight: 600,
+                      fontSize: '9.5px',
+                      cursor: 'pointer',
+                      borderRadius: '3px',
+                      padding: '0 2px'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#EA580C'}
+                    onMouseLeave={e => e.currentTarget.style.color = '#0284C7'}
+                  >
+                    <Fuel size={8} />
+                    {Math.round(Number(v.current_fuel))}L
+                  </span>
+                );
+              }
+
+              return (
                 <span
                   onClick={(e) => {
                     e.stopPropagation();
@@ -531,8 +566,8 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                   <Fuel size={8} />
                   Set Fuel
                 </span>
-              )
-            )}
+              );
+            })()}
           </div>
 
           <div style={{
@@ -1018,14 +1053,45 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                     </td>
                   </tr>
                 )}
-                {(hasVehicleFuelCapability(hoveredVehicle) || (hoveredVehicle.current_fuel !== undefined && hoveredVehicle.current_fuel !== null) || hoveredVehicle.manual_tank_capacity) && (
-                  <tr>
-                    <td style={{ color: '#64748b', padding: '2px 0' }}>Fuel</td>
-                    <td colSpan="3" style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
-                      {formatFuel(hoveredVehicle.current_fuel, hoveredVehicle.tank_capacity || hoveredVehicle.manual_tank_capacity)}
-                    </td>
-                  </tr>
-                )}
+                {(() => {
+                  const hasFuelCap = hasVehicleFuelCapability(hoveredVehicle) || (hoveredVehicle.current_fuel !== undefined && hoveredVehicle.current_fuel !== null) || hoveredVehicle.manual_tank_capacity;
+                  if (!hasFuelCap) return null;
+
+                  const hTanks = getVehicleTanksInfo(hoveredVehicle);
+                  if (hTanks.hasTwoTanks) {
+                    return (
+                      <>
+                        <tr>
+                          <td style={{ color: '#64748b', padding: '2px 0' }}>Total Fuel</td>
+                          <td colSpan="3" style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                            {formatFuel(hTanks.totalFuel, hTanks.totalCapacity)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: '#64748b', padding: '2px 0' }}>Tank 1 Fuel</td>
+                          <td colSpan="3" style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                            {formatFuel(hTanks.tank1.litres, hTanks.tank1.capacity)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: '#64748b', padding: '2px 0' }}>Tank 2 Fuel</td>
+                          <td colSpan="3" style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                            {formatFuel(hTanks.tank2.litres, hTanks.tank2.capacity)}
+                          </td>
+                        </tr>
+                      </>
+                    );
+                  }
+
+                  return (
+                    <tr>
+                      <td style={{ color: '#64748b', padding: '2px 0' }}>Fuel</td>
+                      <td colSpan="3" style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                        {formatFuel(hoveredVehicle.current_fuel, hoveredVehicle.tank_capacity || hoveredVehicle.manual_tank_capacity)}
+                      </td>
+                    </tr>
+                  );
+                })()}
               </tbody>
             </table>
 

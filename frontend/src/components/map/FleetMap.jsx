@@ -13,6 +13,7 @@ import LocationDisplay from '../ui/LocationDisplay';
 import VehicleLiveGaugesOverlay from '../ui/VehicleLiveGaugesOverlay';
 import { useProfile } from '../../modules/profile/hooks/useProfile';
 import { hasPhysicalFuelSensor } from '../../utils/licenseUtils';
+import { getVehicleTanksInfo } from '../../utils/tankUtils';
 
 
 
@@ -529,14 +530,41 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
                   - {liveRouteMetrics[vehicle.id]?.cDist !== undefined ? Number(liveRouteMetrics[vehicle.id].cDist).toFixed(2) : (Number(vehicle.today_distance) || 0).toFixed(2)} kms
                 </td>
               </tr>
-              {vehicle.current_fuel !== undefined && vehicle.current_fuel !== null && Number(vehicle.current_fuel) > 0 && (() => {
+              {vehicle.current_fuel !== undefined && vehicle.current_fuel !== null && Number(vehicle.current_fuel) >= 0 && (() => {
                 const isManual = Boolean(
                   vehicle.is_manual_fuel ||
                   vehicle.manual_tank_capacity ||
                   (!hasPhysicalFuelSensor(vehicle) && vehicle.current_fuel != null)
                 );
 
+                const tanksInfo = getVehicleTanksInfo(vehicle);
+
                 if (!isManual) {
+                  if (tanksInfo.hasTwoTanks) {
+                    return (
+                      <>
+                        <tr>
+                          <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Fuel (Total)</td>
+                          <td style={{ color: '#0284c7', fontWeight: 700, padding: '2px 0' }}>
+                            - {Math.round(tanksInfo.totalFuel)} L {tanksInfo.totalCapacity ? `(${tanksInfo.totalPercentage}%)` : ''}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Tank 1 Fuel</td>
+                          <td style={{ color: '#0284c7', fontWeight: 700, padding: '2px 0' }}>
+                            - {Math.round(tanksInfo.tank1.litres)} L {tanksInfo.tank1.capacity ? `(${tanksInfo.tank1.percentage}%)` : ''}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Tank 2 Fuel</td>
+                          <td style={{ color: '#0284c7', fontWeight: 700, padding: '2px 0' }}>
+                            - {Math.round(tanksInfo.tank2.litres)} L {tanksInfo.tank2.capacity ? `(${tanksInfo.tank2.percentage}%)` : ''}
+                          </td>
+                        </tr>
+                      </>
+                    );
+                  }
+
                   // Physical hardware sensor: show how much is in the tank
                   return (
                     <tr>

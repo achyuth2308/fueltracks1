@@ -1,6 +1,7 @@
 const reportRepository = require('../repositories/reportRepository');
 const db = require('../../../config/db');
 const fuelFilterEngine = require('../../../services/fuelFilterEngine');
+const { getAddress } = require('../../../utils/geocodeUtils');
 
 class ReportService {
   /**
@@ -546,25 +547,86 @@ class ReportService {
   }
 
   async getIndividualReport(vehicleId, startDate, endDate) {
-    const vehicleDetails = await this.getVehicleDetails([vehicleId]);
-    const vInfo = vehicleDetails[vehicleId] || {};
+    const multi = await this.getIndividualReports([vehicleId], startDate, endDate);
+    const first = multi.vehicles[0] || {};
+    return {
+      vehicle: first.vehicle || {},
+      summary: first.summary || {},
+      intervals: first.intervals || [],
+      vehicles: multi.vehicles,
+      activity: {
+        running_seconds: first.summary?.movingSeconds || 0,
+        idle_seconds: first.summary?.idleSeconds || 0,
+        stopped_seconds: first.summary?.parkedSeconds || 0,
+        distance_travelled: first.summary?.tripDistance || 0
+      }
+    };
+  }
 
-    const activity = await reportRepository.getActivity(vehicleId, startDate, endDate);
-    const trips = await reportRepository.getTrips(vehicleId, startDate, endDate);
-    const stoppages = await reportRepository.getStoppages(vehicleId, startDate, endDate);
-    const overspeeding = await reportRepository.getOverspeeding(vehicleId, startDate, endDate, 60);
+  async getIndividualReports(vehicleIds, startDate, endDate) {
+    const vIds = Array.isArray(vehicleIds) ? vehicleIds : [vehicleIds];
+    const vehicleDetails = await this.getVehicleDetails(vIds);
+    const results = [];
+
+    for (const vId of vIds) {
+      const vInfo = vehicleDetails[vId] || { id: vId, name: vId, plate: vId };
+      const intervals = await reportRepository.getTimelineIntervals(vId, startDate, endDate);
+
+      // Pre-resolve addresses with backend geocache
+      for (const it of intervals) {
+        if (it.start_lat && it.start_lng) {
+          try {
+            it.address = await getAddress(it.start_lat, it.start_lng);
+          } catch (_) {
+            it.address = `${parseFloat(it.start_lat).toFixed(4)}, ${parseFloat(it.start_lng).toFixed(4)}`;
+          }
+        } else {
+          it.address = '-';
+        }
+      }
+
+      // Compute vehicle totals
+      let totalMovingSec = 0;
+      let totalParkedSec = 0;
+      let totalIdleSec = 0;
+      let totalDistance = 0;
+      let overallMaxSpeed = 0;
+      let movingSpeedTimeSum = 0;
+
+      for (const it of intervals) {
+        if (it.status === 'Moving') {
+          totalMovingSec += (it.duration_seconds || 0);
+          totalDistance += (it.distance || 0);
+          overallMaxSpeed = Math.max(overallMaxSpeed, it.max_speed || 0);
+          movingSpeedTimeSum += (it.avg_speed || it.max_speed || 0) * (it.duration_seconds || 0);
+        } else if (it.status === 'Parked') {
+          totalParkedSec += (it.duration_seconds || 0);
+        } else if (it.status === 'Idle') {
+          totalIdleSec += (it.duration_seconds || 0);
+        }
+      }
+
+      const overallAvgSpeed = totalMovingSec > 0 ? Math.round(movingSpeedTimeSum / totalMovingSec) : 0;
+
+      results.push({
+        vehicle: vInfo,
+        summary: {
+          tripDistance: Math.round(totalDistance * 100) / 100,
+          movingSeconds: totalMovingSec,
+          parkedSeconds: totalParkedSec,
+          idleSeconds: totalIdleSec,
+          speedHike: overallMaxSpeed,
+          avgSpeed: overallAvgSpeed
+        },
+        intervals
+      });
+    }
 
     return {
-      vehicle: vInfo,
-      activity: activity || { running_seconds: 0, idle_seconds: 0, stopped_seconds: 0, distance_travelled: 0 },
-      trips,
-      stoppages,
-      overspeeding,
-      summary: {
-        trip_count: trips.length,
-        stoppage_count: stoppages.length,
-        overspeeding_count: overspeeding.length
-      }
+      vehicles: results,
+      vehicle: results[0]?.vehicle || {},
+      summary: results[0]?.summary || {},
+      intervals: results[0]?.intervals || []
     };
   }
 

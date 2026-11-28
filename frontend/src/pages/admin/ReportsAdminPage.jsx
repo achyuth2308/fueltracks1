@@ -230,8 +230,7 @@ const ReportsAdminPage = () => {
     { path: '/admin/reports/trip', label: 'Automated Trips' },
     { path: '/admin/reports/manual-trips', label: 'Manual Trips' },
     { path: '/admin/reports/daily-trip', label: 'Total Trip' },
-    { path: '/admin/reports/consolidated', label: 'Vehicle Consolidated' },
-    { path: '/admin/reports/fuel-consolidated', label: 'Fuel Consolidated', isFuel: true }
+    { path: '/admin/reports/consolidated', label: 'Vehicle Consolidated' }
   ];
 
   const FUEL_REPORT_TABS = [

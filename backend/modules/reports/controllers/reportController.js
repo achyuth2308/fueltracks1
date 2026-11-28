@@ -149,17 +149,21 @@ class ReportController {
   async getIndividualReport(req, res, next) {
     try {
       const { start, end } = this.parseDates(req);
-      const { vehicleId } = req.query;
-      if (!vehicleId) throw new Error('vehicleId is required for Individual Report');
+      const vehicleIdParam = req.query.vehicleIds || req.query.vehicleId;
+      if (!vehicleIdParam) throw new Error('vehicleId or vehicleIds is required for Individual Report');
+      
+      const vIds = String(vehicleIdParam).split(',').map(id => id.trim()).filter(Boolean);
       
       if (req.user?.role === 'customer') {
-        const hasAccess = await VehicleModel.belongsToOrg(vehicleId, req.user.orgId, req.user.userId, req.user.role);
-        if (!hasAccess) {
-          return res.status(403).json({ success: false, error: 'Access denied to vehicle' });
+        for (const vId of vIds) {
+          const hasAccess = await VehicleModel.belongsToOrg(vId, req.user.orgId, req.user.userId, req.user.role);
+          if (!hasAccess) {
+            return res.status(403).json({ success: false, error: `Access denied to vehicle ${vId}` });
+          }
         }
       }
       
-      const data = await reportService.getIndividualReport(vehicleId, start, end);
+      const data = await reportService.getIndividualReports(vIds, start, end);
       res.json({ success: true, data });
     } catch (err) {
       next(err);
